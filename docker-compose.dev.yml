@@ -1,0 +1,12 @@
+services:
+  db:
+    image: postgres:16
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_PASSWORD: MatKhauManh123
+      POSTGRES_DB: quizdb
+    volumes:
+      - devdata:/var/lib/postgresql/data
+volumes:
+  devdata:
