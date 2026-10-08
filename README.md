@@ -51,23 +51,23 @@ Quiz Battle là trò chơi thi đấu giúp học tiếng Anh với các cấp �
 
 | Đăng nhập | Trang chủ |
 |---|---|
-| ![Login](docs/screenshots/01-login.png) | ![Home](docs/screenshots/02-home.png) |
+| ![Đăng nhập](docs/screenshots/01-login.png) | ![Trang chủ](docs/screenshots/02-home.png) |
 
 | Sảnh chờ | Đang chơi |
 |---|---|
-| ![Lobby](docs/screenshots/03-lobby.png) | ![Playing](docs/screenshots/04-playing.png) |
+| ![Sảnh chờ](docs/screenshots/03-lobby.png) | ![Đang chơi](docs/screenshots/04-playing.png) |
 
 | Công bố đáp án | Kết quả cuối trận |
 |---|---|
-| ![Reveal](docs/screenshots/05-reveal.png) | ![Result](docs/screenshots/06-result.png) |
+| ![Công bố đáp án](docs/screenshots/05-reveal.png) | ![Kết quả](docs/screenshots/06-result.png) |
 
 | Bảng xếp hạng | Lịch sử |
 |---|---|
-| ![Leaderboard](docs/screenshots/07-leaderboard.png) | ![History](docs/screenshots/08-history.png) |
+| ![Bảng xếp hạng](docs/screenshots/07-leaderboard.png) | ![Lịch sử](docs/screenshots/08-history.png) |
 
 | Chế độ ngữ pháp | Điện thoại (qua tunnel) |
 |---|---|
-| ![Grammar](docs/screenshots/09-grammar.png) | ![Mobile](docs/screenshots/11-mobile.png) |
+| ![Ngữ pháp](docs/screenshots/09-grammar.png) | ![Điện thoại](docs/screenshots/11-mobile.png) |
 
 **Các container đang chạy**
 
@@ -87,15 +87,15 @@ Quiz Battle là trò chơi thi đấu giúp học tiếng Anh với các cấp �
 
 ```
 Browser / phone
-      |  https://xxx.trycloudflare.com   (optional, public link)
+      |  https://xxx.trycloudflare.com   (tùy chọn, liên kết công khai)
       v
- Cloudflare tunnel (cloudflared on your machine)
+ Cloudflare tunnel (cloudflared chạy trên máy của bạn)
       |
       v
  localhost:80
  +--------------------------- Docker Compose ----------------------------+
  |  frontend (Nginx)                                                     |
- |    /            -> built React app (static files)                     |
+|    /            -> ứng dụng React đã build (file tĩnh)                 |
  |    /api/        -> backend:3000   (REST)                              |
  |    /socket.io/  -> backend:3000   (WebSocket)                         |
  |                         |                                             |
@@ -305,47 +305,47 @@ docker compose -f docker-compose.dev.yml down
 
 Các file `.env` được Git bỏ qua. Hãy sao chép file `.env.example` rồi điền giá trị riêng. **Không commit secret thật lên repository.**
 
-## Share a Public Link
+## Chia sẻ liên kết công khai
 
-[Cloudflare quick tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/do-more-with-tunnels/trycloudflare/) gives friends a public URL without opening router ports or creating an account.
+[Cloudflare quick tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/do-more-with-tunnels/trycloudflare/) tạo URL công khai để bạn bè truy cập mà không cần mở cổng router hoặc tạo tài khoản Cloudflare.
 
 ```bash
 cloudflared tunnel --url http://localhost:80
 ```
 
-If the tunnel cannot connect (some school or company networks block UDP), force HTTP/2:
+Nếu tunnel không kết nối được (một số mạng trường học hoặc công ty chặn UDP), hãy chuyển sang HTTP/2:
 
 ```bash
 cloudflared tunnel --protocol http2 --url http://localhost:80
 ```
 
-- Keep the tunnel window open; closing it kills the link.
-- The URL changes every time you restart the tunnel.
-- The Docker stack must be running, and the laptop must stay awake and online.
-- Before a demo, test with a phone on mobile data and check that the player list and check marks update instantly (this confirms WebSockets work through the tunnel).
+- Giữ cửa sổ tunnel mở; đóng cửa sổ sẽ ngắt liên kết.
+- URL sẽ thay đổi mỗi lần khởi động lại tunnel.
+- Docker stack phải đang chạy; máy tính cần bật và có kết nối mạng.
+- Trước buổi demo, hãy thử bằng điện thoại dùng dữ liệu di động và kiểm tra danh sách người chơi/dấu xác nhận cập nhật tức thời để xác nhận WebSocket hoạt động qua tunnel.
 
-## Project Structure
+## Cấu trúc dự án
 
 ```
 quiz-battle/
 ├── backend/
 │   ├── prisma/
-│   │   ├── schema.prisma          Data model
-│   │   ├── migrations/            Database migrations
-│   │   └── seed-kanji.ts          Kanji importer (kanjiapi.dev)
+│   │   ├── schema.prisma          Mô hình dữ liệu
+│   │   ├── migrations/            Các migration database
+│   │   └── seed-kanji.ts          Công cụ nhập Kanji (kanjiapi.dev)
 │   ├── src/
 │   │   ├── auth/                  Register, login, JWT strategy
 │   │   ├── prisma/                Prisma service and module
-│   │   ├── redis/                  Redis connection and global state
+│   │   ├── redis/                  Kết nối Redis và trạng thái toàn cục
 │   │   ├── quiz/
-│   │   │   ├── game.service.ts        Rooms, timer, scoring
-│   │   │   ├── question.service.ts    Question generation
+│   │   │   ├── game.service.ts        Phòng chơi, đồng hồ, tính điểm
+│   │   │   ├── question.service.ts    Tạo câu hỏi
 │   │   │   ├── english-learning-bank.ts
-│   │   │   ├── english-game-modes.ts   Shared game-module registry
-│   │   │   ├── english-game.service.ts Solo sessions, scoring, items, leaderboards
-│   │   │   ├── english-game.controller.ts Solo-game REST API
-│   │   │   ├── quiz.gateway.ts        Socket.IO gateway
-│   │   │   ├── match.controller.ts    History and leaderboard
+│   │   │   ├── english-game-modes.ts   Danh mục module trò chơi dùng chung
+│   │   │   ├── english-game.service.ts Phiên cá nhân, điểm, vật phẩm, xếp hạng
+│   │   │   ├── english-game.controller.ts REST API trò chơi cá nhân
+│   │   │   ├── quiz.gateway.ts        Cổng Socket.IO
+│   │   │   ├── match.controller.ts    Lịch sử và bảng xếp hạng
 │   │   │   └── quiz.module.ts
 │   │   ├── app.module.ts
 │   │   └── main.ts
@@ -353,50 +353,51 @@ quiz-battle/
 │   └── package.json
 ├── frontend/
 │   ├── src/
-│   │   ├── pages/                 AuthPage, Home, Room, Leaderboard, History, MatchDetail
+│   │   ├── pages/                 Các trang đăng nhập, sảnh, phòng, xếp hạng, lịch sử
 │   │   ├── store/                 Redux slices (auth, game)
-│   │   ├── api.ts                 Axios instance
+│   │   ├── api.ts                 Cấu hình Axios
 │   │   ├── socket.ts              Socket.IO client
 │   │   └── App.tsx
 │   ├── Dockerfile
 │   ├── nginx.conf
 │   └── package.json
-├── docs/screenshots/              README images
-├── docker-compose.yml             Production stack
-├── docker-compose.dev.yml         Database for development
-├── demo.bat                       One-click start for demos (Windows)
+├── docs/screenshots/              Ảnh trong README
+├── docker-compose.yml             Stack production
+├── docker-compose.dev.yml         Database và Redis cho phát triển
+├── demo.bat                       Khởi động demo bằng một lệnh (Windows)
 ├── .env.example
 └── README.md
 ```
 
-## Troubleshooting
+## Xử lý sự cố
 
-| Symptom | Fix |
+| Hiện tượng | Cách xử lý |
 |---|---|
-| `port is already allocated` | Port 80 is busy. Use `"8080:80"` in `docker-compose.yml` |
-| `EADDRINUSE ... 3000` (dev) | An old backend is still running. Stop node processes and start again |
-| `Can't reach database server` | The database is not ready. Check `docker compose ps` and wait about 20 seconds |
-| `Cannot find module '/app/dist/main'` | Build output is in the wrong place. Check `backend/tsconfig.build.json` and rebuild with `--build` |
-| `secretOrKey must be provided` | `JWT_SECRET` is missing, or `import 'dotenv/config'` is not at the top of `main.ts` |
-| Web shows 502 | Backend is not up yet or crashed. Check `docker compose logs backend` |
-| Table does not exist | Apply the committed migrations with `npx prisma migrate deploy` from `backend/` (or `docker compose exec backend npx prisma migrate deploy` for Docker) |
-| Redis connection refused | Start Docker Compose, including the Redis service, or run the dev Redis container on port 6379 |
-| Daily Challenge says it is already complete | Each account can score once per UTC day; an unfinished session resumes in the same browser |
-| English level has too few questions | Add vocabulary and grammar entries for that CEFR level in `english-learning-bank.ts` |
-| Garbled characters (`?` or a replacement symbol) | A file was saved in the wrong encoding. Re-save it as UTF-8 |
-| Blank page when opening `index.html` directly | Expected. Use `http://localhost` (Docker) or `http://localhost:5173` (dev) |
-| Page not updated after editing code | Dev mode: open `http://localhost:5173` and check Vite is running. Docker mode: run `docker compose up -d --build`, then press `Ctrl+F5` at `http://localhost` |
+| Hiện tượng | Cách xử lý |
+| `port is already allocated` | Cổng 80 đang bận. Đổi mapping thành `"8080:80"` trong `docker-compose.yml` |
+| `EADDRINUSE ... 3000` (dev) | Backend cũ vẫn đang chạy. Dừng tiến trình Node cũ rồi khởi động lại |
+| `Can't reach database server` | Database chưa sẵn sàng. Kiểm tra `docker compose ps` và chờ khoảng 20 giây |
+| `Cannot find module '/app/dist/main'` | Sai vị trí build output. Kiểm tra `backend/tsconfig.build.json` rồi build lại bằng `--build` |
+| `secretOrKey must be provided` | Thiếu `JWT_SECRET` hoặc `import 'dotenv/config'` chưa ở đầu `main.ts` |
+| Web hiển thị 502 | Backend chưa khởi động hoặc đã bị crash. Kiểm tra `docker compose logs backend` |
+| Không tìm thấy bảng dữ liệu | Chạy migration đã commit bằng `npx prisma migrate deploy` từ `backend/` (hoặc `docker compose exec backend npx prisma migrate deploy` khi dùng Docker) |
+| Không kết nối được Redis | Khởi động Docker Compose có service Redis hoặc chạy Redis dev trên cổng 6379 |
+| Daily Challenge báo đã hoàn thành | Mỗi tài khoản chỉ được tính điểm một lần mỗi ngày UTC; phiên chưa xong có thể tiếp tục trên cùng trình duyệt |
+| Cấp CEFR có quá ít câu hỏi | Bổ sung từ vựng và ngữ pháp cho cấp độ đó trong `english-learning-bank.ts` |
+| Ký tự bị lỗi (`?` hoặc ký hiệu thay thế) | File có thể đã lưu sai encoding. Lưu lại bằng UTF-8 |
+| Trang trắng khi mở trực tiếp `index.html` | Đây là hành vi bình thường. Dùng `http://localhost` (Docker) hoặc `http://localhost:5173` (dev) |
+| Trang không cập nhật sau khi sửa code | Dev: mở `http://localhost:5173` và kiểm tra Vite đang chạy. Docker: chạy `docker compose up -d --build`, sau đó nhấn `Ctrl+F5` tại `http://localhost` |
 
-## Limitations
+## Giới hạn
 
-- Active rooms are stored in server memory, so only a single backend instance is supported and running games are lost when the backend restarts. To scale horizontally, use the Socket.IO Redis adapter and keep room state in Redis.
-- The old Kanji schema and seed remain in the repository for compatibility, but the current frontend is an English-learning experience.
-- Reconnecting in the middle of a match does not restore the current question.
-- Cloudflare quick tunnels have no uptime guarantee and are meant for demos, not production.
+- Phòng multiplayer được lưu trong bộ nhớ server nên sẽ mất khi backend khởi động lại; chạy nhiều backend cần Socket.IO Redis adapter. Phiên chơi cá nhân và bảng xếp hạng đã dùng Redis.
+- Schema và seed Kanji cũ vẫn nằm trong repository để tương thích, nhưng frontend hiện tập trung vào học tiếng Anh.
+- Kết nối lại giữa trận hiện chưa khôi phục được câu hỏi đang chơi.
+- Cloudflare quick tunnel không đảm bảo uptime và chỉ phù hợp cho demo, không dùng làm môi trường production.
 
-## Roadmap
+## Định hướng phát triển
 
-- Rejoin a running match after a connection drop
-- Question categories and custom question sets managed by an admin
-- Sound effects, streaks, and a red countdown bar for the last 5 seconds
-- Persistent room state in Redis and deployment to a VPS
+- Cho phép vào lại trận đang diễn ra sau khi mất kết nối
+- Thêm danh mục câu hỏi và bộ câu hỏi tùy chỉnh do quản trị viên quản lý
+- Thêm hiệu ứng âm thanh, chuỗi trả lời đúng và thanh đếm ngược đỏ trong 5 giây cuối
+- Lưu trạng thái phòng trong Redis và triển khai lên VPS
