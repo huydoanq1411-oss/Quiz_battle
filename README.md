@@ -291,6 +291,15 @@ docker compose -f docker-compose.dev.yml down
 
 Chạy Cách A trước vì tunnel sẽ chuyển tiếp tới cổng `80`. Mở thêm PowerShell và chạy lệnh tương ứng với nơi đã cài `cloudflared`:
 
+Yêu cầu: mở Docker Desktop và đợi báo Engine running.
+Khởi động
+powershell
+```
+cd F:\quiz-battle
+docker compose up -d
+docker compose ps
+```
+
 ```powershell
 cloudflared tunnel --protocol http2 --url http://localhost:80
 ```
