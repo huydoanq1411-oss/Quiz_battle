@@ -77,16 +77,16 @@ Quiz Battle là trò chơi thi đấu giúp học tiếng Anh với các cấp �
 
 | Lớp | Công nghệ |
 |---|---|
-| Frontend | React, TypeScript, Vite, Redux Toolkit, React Router, Axios, Socket.IO client |
-| Backend | NestJS 12, Socket.IO, Passport JWT, bcrypt |
-| Database | PostgreSQL 16, Prisma ORM |
-| Cache / bảng xếp hạng / phiên chơi cá nhân | Redis 7 sorted set và key có thời hạn |
+| Giao diện | React, TypeScript, Vite, Redux Toolkit, React Router, Axios, Socket.IO client |
+| Máy chủ | NestJS 12, Socket.IO, Passport JWT, bcrypt |
+| Cơ sở dữ liệu | PostgreSQL 16, Prisma ORM |
+| Bộ nhớ đệm / bảng xếp hạng / phiên chơi cá nhân | Redis 7 sorted set và key có thời hạn |
 | Triển khai | Docker Compose (db, Redis, backend, frontend chạy bằng Nginx), Cloudflare Tunnel |
 
 ## Kiến trúc
 
 ```
-Browser / phone
+Trình duyệt / điện thoại
       |  https://xxx.trycloudflare.com   (tùy chọn, liên kết công khai)
       v
  Cloudflare tunnel (cloudflared chạy trên máy của bạn)
@@ -102,7 +102,7 @@ Browser / phone
  |                         v                                             |
 |  backend (NestJS) --- Prisma ---> db (PostgreSQL, volume: dbdata)     |
 |         |                                                            |
-|         +---- redis (sorted sets / persistent solo sessions) --------|
+|         +---- redis (xếp hạng / phiên cá nhân được lưu bền vững) -----|
  +-----------------------------------------------------------------------+
 ```
 
@@ -166,7 +166,6 @@ Tất cả route REST đều có tiền tố `/api`. Route yêu cầu xác thự
 
 | Phương thức | Route | Xác thực | Mô tả |
 |---|---|---|---|
-| Phương thức | Route | Xác thực | Mô tả |
 | POST | `/api/auth/register` | Không | Body `{email, name, password}` (mật khẩu tối thiểu 6 ký tự). Trả về `{token, user}` |
 | POST | `/api/auth/login` | Không | Body `{email, password}`. Trả về `{token, user}` |
 | GET | `/api/auth/me` | Có | Thông tin người dùng hiện tại |
@@ -267,9 +266,9 @@ Database phát triển được mở ở cổng `5433`; Redis ở cổng `6379`.
 
 ```powershell
 cd F:\quiz-battle\backend
-Copy-Item .env.example .env   # only the first time
-npm install                  # only the first time, or after dependency changes
-npx prisma migrate dev       # only when setting up/updating the database schema
+Copy-Item .env.example .env   # chỉ chạy lần đầu
+npm install                  # chỉ chạy lần đầu hoặc khi dependency thay đổi
+npx prisma migrate dev       # chỉ chạy khi khởi tạo/cập nhật schema database
 npm run start:dev
 ```
 
@@ -279,7 +278,7 @@ Backend chạy tại `http://localhost:3000` và tự khởi động lại khi f
 
 ```powershell
 cd F:\quiz-battle\frontend
-npm install                  # only the first time, or after dependency changes
+npm install                  # chỉ chạy lần đầu hoặc khi dependency thay đổi
 npm run dev
 ```
 
@@ -334,8 +333,8 @@ quiz-battle/
 │   │   ├── migrations/            Các migration database
 │   │   └── seed-kanji.ts          Công cụ nhập Kanji (kanjiapi.dev)
 │   ├── src/
-│   │   ├── auth/                  Register, login, JWT strategy
-│   │   ├── prisma/                Prisma service and module
+│   │   ├── auth/                  Đăng ký, đăng nhập, chiến lược JWT
+│   │   ├── prisma/                Prisma service và module
 │   │   ├── redis/                  Kết nối Redis và trạng thái toàn cục
 │   │   ├── quiz/
 │   │   │   ├── game.service.ts        Phòng chơi, đồng hồ, tính điểm
@@ -354,7 +353,7 @@ quiz-battle/
 ├── frontend/
 │   ├── src/
 │   │   ├── pages/                 Các trang đăng nhập, sảnh, phòng, xếp hạng, lịch sử
-│   │   ├── store/                 Redux slices (auth, game)
+│   │   ├── store/                 Redux slices (xác thực, trò chơi)
 │   │   ├── api.ts                 Cấu hình Axios
 │   │   ├── socket.ts              Socket.IO client
 │   │   └── App.tsx
@@ -373,7 +372,6 @@ quiz-battle/
 
 | Hiện tượng | Cách xử lý |
 |---|---|
-| Hiện tượng | Cách xử lý |
 | `port is already allocated` | Cổng 80 đang bận. Đổi mapping thành `"8080:80"` trong `docker-compose.yml` |
 | `EADDRINUSE ... 3000` (dev) | Backend cũ vẫn đang chạy. Dừng tiến trình Node cũ rồi khởi động lại |
 | `Can't reach database server` | Database chưa sẵn sàng. Kiểm tra `docker compose ps` và chờ khoảng 20 giây |
