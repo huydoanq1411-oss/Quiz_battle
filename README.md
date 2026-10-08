@@ -24,6 +24,7 @@ Quiz Battle là trò chơi thi đấu giúp học tiếng Anh với các cấp �
 - [Xử lý sự cố](#xử-lý-sự-cố)
 - [Giới hạn](#giới-hạn)
 - [Định hướng phát triển](#định-hướng-phát-triển)
+- [Thêm tính năng cho web](#thêm-tính-năng-cho-web)
 
 ---
 
@@ -392,3 +393,38 @@ quiz-battle/
 - Thêm danh mục câu hỏi và bộ câu hỏi tùy chỉnh do quản trị viên quản lý
 - Thêm hiệu ứng âm thanh, chuỗi trả lời đúng và thanh đếm ngược đỏ trong 5 giây cuối
 - Lưu trạng thái phòng trong Redis và triển khai lên VPS
+
+## Thêm tính năng cho web
+
+Trước khi commit hoặc push, hãy kiểm tra thay đổi local và đối chiếu với GitHub. Mở PowerShell tại thư mục dự án:
+
+```powershell
+cd F:\quiz-battle
+git fetch origin
+git status
+git diff
+```
+
+- `git fetch origin` tải thông tin commit mới từ GitHub nhưng không tự sửa các file đang làm việc.
+- `git status` liệt kê file đã sửa (`M` hoặc `modified`), file mới chưa được Git theo dõi (`??` hoặc `untracked`) và trạng thái nhánh.
+- `git diff` xem nội dung thay đổi chưa được đưa vào commit. Muốn xem riêng hai file Compose, chạy `git diff -- docker-compose.yml docker-compose.dev.yml`.
+- Số lượng file đang sửa không cho biết Copilot hay công cụ nào đã sửa chúng. Hãy xem `git diff` để xác định nội dung và chỉ giữ các thay đổi bạn chủ động muốn gửi.
+
+> Không dùng `git reset origin/main` như lệnh cập nhật an toàn. Lệnh này di chuyển nhánh hiện tại và đặt lại index; nó không tương đương với `git fetch` và có thể làm trạng thái local khó xử lý. Tránh `git reset --hard`, vì lệnh đó có thể xóa thay đổi chưa commit.
+
+Nếu cần lấy commit mới từ nhánh `main`, trước tiên hãy commit hoặc cất riêng các thay đổi local. Sau đó mới đồng bộ:
+
+```powershell
+git pull --rebase origin main
+```
+
+Khi danh sách và nội dung thay đổi đã được kiểm tra, thêm đúng các file muốn gửi (thay đường dẫn mẫu bằng file thực tế):
+
+```powershell
+git add README.md frontend/src/pages/Home.tsx
+git diff --cached
+git commit -m "Add English learning features"
+git push -u origin main
+```
+
+Chỉ dùng `git add .` khi đã xem `git status` và xác nhận mọi file chưa theo dõi/thay đổi đều thuộc về tính năng này.
