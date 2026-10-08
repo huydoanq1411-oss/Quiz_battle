@@ -13,8 +13,8 @@ interface QuestionView {
   prompt: string;
   options?: string[];
   letters?: string[];
+  answerLength?: number;
   spokenText?: string;
-  hint: string;
 }
 
 interface GameView {
@@ -137,7 +137,7 @@ export default function EnglishGame() {
       setFeedback(response.data.lastAnswerCorrect ? 'Chính xác! + điểm combo' : response.data.questionComplete ? 'Chưa đúng, sang câu tiếp theo.' : 'Chưa đúng, thử lại nhé.');
       setSelected('');
       if (response.data.questionComplete) setItemHint('');
-    } catch (reason) {
+    } catch {
       setError('Không gửi được câu trả lời. Vui lòng thử lại.');
     } finally {
       setBusy(false);
@@ -210,13 +210,13 @@ export default function EnglishGame() {
             <div className="english-question-meta"><span>{game.question.skill}</span><span>{kind === 'daily' ? `Câu ${game.questionIndex + 1} / 10` : 'Câu tiếp theo'}</span></div>
             <h2>{game.question.prompt}</h2>
             {game.question.mode === 'letter-order' && <div className="scramble-letters" aria-label="Các chữ cái cần sắp xếp">{game.question.letters?.map((letter, index) => <span key={`${letter}-${index}`}>{letter}</span>)}</div>}
-            {game.question.mode === 'wordle' && <div className="wordle-guesses" aria-label="Các lần đoán">{Array.from({ length: 6 }, (_, index) => <div key={index} className="wordle-row">{Array.from({ length: game.question.hint.length }, (_, letterIndex) => <span key={letterIndex}>{game.guesses[index]?.[letterIndex]?.toUpperCase() ?? ''}</span>)}</div>)}</div>}
+            {game.question.mode === 'wordle' && <div className="wordle-guesses" aria-label="Các lần đoán">{Array.from({ length: 6 }, (_, index) => <div key={index} className="wordle-row">{Array.from({ length: game.question.answerLength ?? 5 }, (_, letterIndex) => <span key={letterIndex}>{game.guesses[index]?.[letterIndex]?.toUpperCase() ?? ''}</span>)}</div>)}</div>}
             {game.question.options && <div className="english-options">{game.question.options.map((option, index) => {
               const hidden = game.hiddenOptions.includes(index);
               return <button key={`${option}-${index}`} className={`english-option${selected === option ? ' is-selected' : ''}`} type="button" disabled={hidden || busy} onClick={() => setSelected(option)}><b>{index + 1}</b><span>{option}</span></button>;
             })}</div>}
             {game.question.spokenText && <button className="button sound-button" type="button" onClick={speak} disabled={!soundEnabled}>▶ Nghe phát âm</button>}
-            {!choiceMode && <label className="english-answer-input"><span>{game.question.mode === 'wordle' ? `Đoán từ (${game.question.hint})` : 'Câu trả lời'}</span><input autoComplete="off" autoCapitalize="off" spellCheck={false} value={selected} onChange={(event) => setSelected(event.target.value)} placeholder={game.question.mode === 'wordle' ? 'Nhập từ tiếng Anh' : 'Nhập đáp án'} maxLength={40} /></label>}
+            {!choiceMode && <label className="english-answer-input"><span>{game.question.mode === 'wordle' ? `Đoán từ (${game.question.answerLength} chữ cái)` : 'Câu trả lời'}</span><input autoComplete="off" autoCapitalize="off" spellCheck={false} value={selected} onChange={(event) => setSelected(event.target.value)} placeholder={game.question.mode === 'wordle' ? 'Nhập từ tiếng Anh' : 'Nhập đáp án'} maxLength={40} /></label>}
             {itemHint && <p className="item-hint">Gợi ý: bắt đầu bằng <strong>{itemHint}</strong></p>}
             {feedback && <p className={`game-feedback${feedback.startsWith('Chính xác') ? ' is-correct' : ''}`} aria-live="polite">{feedback}</p>}
             {error && <p className="form-error" role="alert">{error}</p>}

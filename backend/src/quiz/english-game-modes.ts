@@ -24,6 +24,7 @@ export interface EnglishGameQuestion {
   options?: string[];
   letters?: string[];
   spokenText?: string;
+  answerLength?: number;
   hint: string;
   answer: string;
 }
@@ -100,7 +101,7 @@ export const ENGLISH_GAME_MODULES: readonly EnglishGameModule[] = [
       return {
         id: entry.word, mode: this.id, skill: this.skill,
         prompt: `Sắp xếp chữ cái để tạo từ có nghĩa “${entry.meaning}”.`,
-        letters: shuffle([...entry.word.toLocaleUpperCase('en-US')], random),
+        letters: shuffle(Array.from(entry.word.toLocaleUpperCase('en-US')), random),
         hint: entry.word[0].toLocaleUpperCase('en-US'), answer: entry.word,
       };
     },
@@ -134,7 +135,7 @@ export const ENGLISH_GAME_MODULES: readonly EnglishGameModule[] = [
       return {
         id: entry.word, mode: this.id, skill: this.skill,
         prompt: `Đoán từ tiếng Anh có nghĩa “${entry.meaning}”.`,
-        hint: `${entry.word.length} chữ cái`, answer: entry.word,
+        answerLength: Array.from(entry.word).length, hint: `${Array.from(entry.word).length} chữ cái`, answer: entry.word,
       };
     },
     checkAnswer: (question, answer) => normalize(question.answer) === normalize(answer),

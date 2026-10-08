@@ -26,7 +26,7 @@ const clean = (s?: string) => s?.replace(/[.-]/g, '');
 export class QuestionService {
   constructor(private prisma: PrismaService) {}
 
-  get(lang: Lang, n: number, mode: QuizMode = 'VOCAB', level: QuizLevel = 'A1-A2') {
+  get(lang: Lang, n: number, mode: QuizMode = 'VOCAB', level: QuizLevel = 'A1') {
     return lang === 'JA'
       ? this.japanese(n, level as JapaneseLevel)
       : this.english(n, mode === 'IELTS' ? 'IELTS' : 'VOCAB', level as EnglishLevel);

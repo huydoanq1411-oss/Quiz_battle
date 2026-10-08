@@ -4,7 +4,7 @@ interface PlayerInfo { userId: number; name: string; score: number; isHost: bool
 interface Q { index: number; total: number; text: string; options: string[]; durationMs: number }
 interface Rank { rank: number; userId: number; name: string; score: number }
 type QuizMode = 'VOCAB' | 'IELTS' | 'JLPT';
-type QuizLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2' | 'N5' | 'N4' | 'N3' | 'N2' | 'N1';
+type QuizLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2' | 'A1-A2' | 'B1-B2' | 'C1-C2' | 'N5' | 'N4' | 'N3' | 'N2' | 'N1';
 
 interface GameState {
   phase: 'idle' | 'lobby' | 'playing' | 'reveal' | 'ended';

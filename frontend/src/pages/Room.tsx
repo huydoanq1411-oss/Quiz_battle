@@ -27,7 +27,7 @@ export default function Room() {
 
   useEffect(() => {
     const socket = getSocket();
-    socket.emit('room:join', { code }, (response: { error?: string; lang: 'EN' | 'JA'; mode: 'VOCAB' | 'IELTS' | 'JLPT'; level: 'A1-A2' | 'B1-B2' | 'C1-C2' | 'N5' | 'N4' | 'N3' | 'N2' | 'N1' }) => {
+    socket.emit('room:join', { code }, (response: { error?: string; lang: 'EN' | 'JA'; mode: 'VOCAB' | 'IELTS' | 'JLPT'; level: 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2' | 'A1-A2' | 'B1-B2' | 'C1-C2' | 'N5' | 'N4' | 'N3' | 'N2' | 'N1' }) => {
       if (response.error) { alert(response.error); nav('/'); }
       else dispatch(joined({ lang: response.lang, mode: response.mode, level: response.level }));
     });

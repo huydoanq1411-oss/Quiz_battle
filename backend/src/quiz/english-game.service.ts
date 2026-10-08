@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { getEnglishGameModule, type EnglishGameQuestion, type EnglishModeId } from './english-game-modes';
 import type { CefrLevel } from './english-learning-bank';
 import { RedisService } from '../redis/redis.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 type SessionKind = 'time-attack' | 'daily';
 type ItemId = 'fifty-fifty' | 'extra-time' | 'hint';
@@ -62,7 +63,7 @@ function seededRandom(seed: string): () => number {
 
 @Injectable()
 export class EnglishGameService {
-  constructor(private readonly redis: RedisService) {}
+  constructor(private readonly redis: RedisService, private readonly prisma: PrismaService) {}
 
   async start(userId: number, kind: SessionKind, level: CefrLevel) {
     if (!LEVELS.includes(level)) throw new Error('Cấp độ CEFR không hợp lệ.');
@@ -100,7 +101,7 @@ export class EnglishGameService {
       status: 'playing',
       startedAt: now,
       endsAt: now + (kind === 'daily' ? 15 * DAILY_QUESTION_COUNT * 1000 : TIME_ATTACK_MS),
-      question: this.makeQuestion(kind, level, sessionSeed(kind, dailyDate, id, 0)),
+      question: this.makeQuestion(kind, level, sessionSeed(kind, dailyDate, id, 0), 0),
     };
     await this.saveSession(session);
     if (dailyDate) await this.redis.client.set(this.dailyActiveKey(userId, dailyDate), id, 'EX', SESSION_TTL_SECONDS);
@@ -153,7 +154,7 @@ export class EnglishGameService {
       session.questionIndex++;
       session.guesses = [];
       session.hiddenOptions = [];
-      session.question = this.makeQuestion(session.kind, session.level, sessionSeed(session.kind, session.dailyDate, session.seed, session.questionIndex));
+      session.question = this.makeQuestion(session.kind, session.level, sessionSeed(session.kind, session.dailyDate, session.seed, session.questionIndex), session.questionIndex);
       await this.saveSession(session);
     }
 
@@ -216,7 +217,7 @@ export class EnglishGameService {
   }
 
   private publicState(session: EnglishSession) {
-    const { answer: _answer, ...question } = session.question;
+    const { answer: _answer, hint: _hint, ...question } = session.question;
     return {
       id: session.id,
       kind: session.kind,
@@ -259,6 +260,8 @@ export class EnglishGameService {
   }
 
   private async addLeaderboardScore(userId: number, score: number, dailyDate: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
+    if (user) await this.redis.client.hset('english:players', String(userId), user.name);
     const scopes = [
       { name: 'today', key: `english:leaderboard:today:${dailyDate}`, ttl: 60 * 60 * 24 * 10 },
       { name: 'week', key: `english:leaderboard:week:${weekStart(new Date(`${dailyDate}T00:00:00.000Z`).getTime())}`, ttl: 60 * 60 * 24 * 70 },
