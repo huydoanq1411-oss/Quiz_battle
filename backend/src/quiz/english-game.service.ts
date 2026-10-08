@@ -71,7 +71,7 @@ export class EnglishGameService {
     const effectiveLevel: CefrLevel = kind === 'daily' ? 'B1' : level;
     if (dailyDate) {
       const completedKey = this.dailyCompletedKey(userId, dailyDate);
-      if (await this.redis.client.exists(completedKey)) throw new Error('Bạn đã hoàn thành Daily Challenge hôm nay.');
+      if (await this.redis.client.exists(completedKey)) throw new ConflictException('Bạn đã hoàn thành Daily Challenge hôm nay.');
       const activeKey = this.dailyActiveKey(userId, dailyDate);
       const activeId = await this.redis.client.get(activeKey);
       if (activeId) {
@@ -118,12 +118,20 @@ export class EnglishGameService {
   }
 
   async getState(userId: number, id: string) {
+    return this.withSessionLock(id, async () => this.getStateLocked(userId, id));
+  }
+
+  private async getStateLocked(userId: number, id: string) {
     const session = await this.requireSession(userId, id);
     if (session.status === 'playing' && Date.now() >= session.endsAt) await this.finish(session);
     return this.publicState(session);
   }
 
   async answer(userId: number, id: string, answer: string) {
+    return this.withSessionLock(id, async () => this.answerLocked(userId, id, answer));
+  }
+
+  private async answerLocked(userId: number, id: string, answer: string) {
     const session = await this.requireSession(userId, id);
     if (session.status !== 'playing') throw new ConflictException('Lượt chơi này đã kết thúc.');
     if (Date.now() >= session.endsAt) {
@@ -171,6 +179,10 @@ export class EnglishGameService {
   }
 
   async useItem(userId: number, id: string, item: ItemId) {
+    return this.withSessionLock(id, async () => this.useItemLocked(userId, id, item));
+  }
+
+  private async useItemLocked(userId: number, id: string, item: ItemId) {
     const session = await this.requireSession(userId, id);
     if (session.status !== 'playing' || Date.now() >= session.endsAt) throw new ConflictException('Lượt chơi đã kết thúc.');
     if (!(['fifty-fifty', 'extra-time', 'hint'] as string[]).includes(item)) throw new BadRequestException('Vật phẩm không hợp lệ.');
@@ -289,6 +301,23 @@ export class EnglishGameService {
     const session = await this.readSession(id);
     if (!session || session.userId !== userId) throw new NotFoundException('Không tìm thấy lượt chơi.');
     return session;
+  }
+
+  private async withSessionLock<T>(id: string, operation: () => Promise<T>): Promise<T> {
+    const key = `english:session-lock:${id}`;
+    const token = randomUUID();
+    const acquired = await this.redis.client.set(key, token, 'PX', 15_000, 'NX');
+    if (!acquired) throw new ConflictException('Lượt chơi đang được cập nhật. Thử lại ngay.');
+    try {
+      return await operation();
+    } finally {
+      await this.redis.client.eval(
+        "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
+        1,
+        key,
+        token,
+      );
+    }
   }
 
   private async readSession(id: string) {

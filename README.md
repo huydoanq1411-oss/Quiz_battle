@@ -67,7 +67,7 @@ A Vietnamese-language competitive English-learning game with CEFR levels from A1
 
 | Grammar mode | Mobile (via tunnel) |
 |---|---|
-| ![Japanese](docs/screenshots/09-japanese.png) | ![Mobile](docs/screenshots/11-mobile.png) |
+| ![Grammar](docs/screenshots/09-grammar.png) | ![Mobile](docs/screenshots/11-mobile.png) |
 
 **Running containers**
 
@@ -122,6 +122,7 @@ Browser / phone
 | Questions per multiplayer match | 3 to 20 (host chooses) |
 | Correct answer | 100 points |
 | Speed bonus | up to 50 points, proportional to remaining time |
+| Solo combo | 10 base points per correct answer; every three consecutive correct answers adds a multiplier, up to 5× |
 | Early finish | if every connected player has answered, the question ends immediately |
 
 All timing and scoring are calculated on the server. The client displays the server deadline and countdown.
@@ -217,15 +218,9 @@ Requirement: [Docker Desktop](https://www.docker.com/products/docker-desktop/).
    docker compose ps
    ```
 
-   All four services (`db`, `redis`, `backend`, `frontend`) should be `Up`. The first build takes a few minutes.
+   All four services (`db`, `redis`, `backend`, `frontend`) should be `Up`. The first build takes a few minutes. English questions ship with the backend; no seed step is needed.
 
-3. Seed the kanji data (run once):
-
-   ```bash
-   docker compose exec backend npx ts-node prisma/seed-kanji.ts
-   ```
-
-4. Open **http://localhost**.
+3. Open **http://localhost**.
 
 Useful commands:
 
@@ -256,7 +251,6 @@ cd backend
 cp .env.example .env        # on Windows PowerShell: Copy-Item .env.example .env
 npm install
 npx prisma migrate dev
-npx ts-node prisma/seed-kanji.ts
 npm run start:dev
 
 # 3. Frontend (http://localhost:5173)
@@ -277,6 +271,7 @@ To test with two players on one computer, use a normal window and an incognito w
 | `.env` (root) | `JWT_SECRET` | Secret used to sign JWTs |
 | `backend/.env` | `DATABASE_URL` | Connection string for local development, e.g. `postgresql://postgres:<password>@localhost:5433/quizdb` |
 | `backend/.env` | `JWT_SECRET` | Same purpose as above |
+| `backend/.env` | `REDIS_URL` | Redis connection; defaults to `redis://localhost:6379` for local development |
 
 `.env` files are git-ignored. Copy the `.env.example` files and fill in your own values. **Never commit real secrets.**
 

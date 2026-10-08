@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import api from '../api';
 
 type GameKind = 'time-attack' | 'daily';
@@ -75,7 +75,9 @@ export default function EnglishGame() {
   const expiryRequested = useRef(false);
 
   const storageKey = (gameKind: GameKind, gameLevel: CefrLevel, dailyDate?: string) =>
-    `quiz-battle:english-game:${gameKind}:${gameLevel}:${gameKind === 'daily' ? dailyDate ?? new Date().toISOString().slice(0, 10) : 'active'}`;
+      gameKind === 'daily'
+        ? `quiz-battle:english-game:daily:${dailyDate ?? new Date().toISOString().slice(0, 10)}`
+        : `quiz-battle:english-game:time-attack:active`;
 
   const applyGame = useCallback((next: GameView) => {
     setGame(next);
@@ -87,16 +89,13 @@ export default function EnglishGame() {
   }, []);
 
   useEffect(() => {
-    const prefix = `quiz-battle:english-game:${kind}:`;
-    const savedId = Object.keys(localStorage)
-      .filter((key) => key.startsWith(prefix))
-      .map((key) => localStorage.getItem(key))
-      .find((value): value is string => Boolean(value));
+    const key = storageKey(kind, level);
+    const savedId = localStorage.getItem(key);
     if (!savedId) return;
     api.get<GameView>(`/english-games/${savedId}`).then((response) => applyGame(response.data)).catch(() => {
-      Object.keys(localStorage).filter((key) => key.startsWith(prefix)).forEach((key) => localStorage.removeItem(key));
+      localStorage.removeItem(key);
     });
-  }, [applyGame, kind]);
+  }, [applyGame, kind, level]);
 
   const startGame = async () => {
     setBusy(true);
@@ -193,7 +192,7 @@ export default function EnglishGame() {
   };
 
   if (error && !game) {
-    return <section className="english-game-page"><p className="eyebrow">THỬ THÁCH TIẾNG ANH</p><h1>Chưa thể bắt đầu.</h1><p className="page-intro">{error}</p><a className="button button-primary" href="/">Về sảnh chơi</a></section>;
+    return <section className="english-game-page"><p className="eyebrow">THỬ THÁCH TIẾNG ANH</p><h1>Chưa thể bắt đầu.</h1><p className="page-intro">{error}</p><Link className="button button-primary" to="/">Về sảnh chơi</Link></section>;
   }
   if (!game) return (
     <section className="english-game-page">
@@ -234,7 +233,7 @@ export default function EnglishGame() {
           <p className="eyebrow">LƯỢT CHƠI ĐÃ LƯU</p>
           <h2>{kind === 'daily' ? 'Hoàn thành thử thách.' : 'Hết giờ.'}</h2>
           <p className="page-intro">Bạn đạt <strong>{game.score} điểm</strong>, đúng {game.correctAnswers} câu và có streak cao nhất {game.bestStreak}.{game.dailyStreak ? ` Chuỗi Daily Challenge: ${game.dailyStreak} ngày.` : ''}</p>
-          <a className="button button-primary" href="/leaderboard">Xem bảng xếp hạng <span aria-hidden="true">→</span></a>
+          <Link className="button button-primary" to="/leaderboard">Xem bảng xếp hạng <span aria-hidden="true">→</span></Link>
         </div>
       ) : game?.status === 'playing' ? (
         <div className="english-play-layout">
