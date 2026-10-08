@@ -36,12 +36,13 @@ A real-time multiplayer quiz game for learning **English** (vocabulary, IELTS-st
 - **Scoring**: 100 points per correct answer plus up to 50 speed bonus points
 - **Leaderboard**: top 10 players per language
 - **History**: list of your matches and details of each match
-- **Anti-cheat**: the server holds the answers and scores them; the correct answer is sent only after time is up
+- **Anti-cheat**: the server holds the answers and scores them; the correct answer is sent only when the question closes, either at timeout or after all connected players have answered
 - **Dockerized**: the whole stack starts with one command
 
 ## Screenshots
 
 > Add your screenshots to `docs/screenshots/` and keep the file names below.
+> The screenshot files are not currently present in the repository; add them to this folder for the images to render.
 
 | Login | Home |
 |---|---|
@@ -72,7 +73,7 @@ A real-time multiplayer quiz game for learning **English** (vocabulary, IELTS-st
 | Layer | Technology |
 |---|---|
 | Frontend | React, TypeScript, Vite, Redux Toolkit, React Router, Axios, Socket.IO client |
-| Backend | NestJS, Socket.IO, Passport JWT, bcrypt |
+| Backend | NestJS 12, Socket.IO, Passport JWT, bcrypt |
 | Database | PostgreSQL 16, Prisma ORM |
 | Deployment | Docker Compose (db, backend, frontend served by Nginx), Cloudflare Tunnel |
 
@@ -100,7 +101,7 @@ Browser / phone
 - **Nginx** serves the React build and acts as a reverse proxy, so the browser talks to a single address.
 - **REST** (`/api`) handles sign up, login, leaderboard and history.
 - **Socket.IO** (`/socket.io`) handles everything real-time: rooms, questions, answers, scores.
-- **Active rooms live in server memory** for speed and simplicity. Only final match results are written to PostgreSQL.
+- **Active rooms live in server memory** for speed and simplicity; in-progress room state is not persisted. User accounts, Kanji cards and completed match results are stored in PostgreSQL.
 - Only the `frontend` container publishes a port; the backend and database are reachable only inside the Docker network.
 
 ## Game Rules and Scoring
@@ -148,14 +149,15 @@ The socket handshake must include the JWT: `io({ auth: { token } })`. Invalid to
 
 | Event | Direction | Payload | Description |
 |---|---|---|---|
-| `room:create` | client to server | `{lang, total, mode, level}` | Create a room; ack returns the room code |
-| `room:join` | client to server | `{code}` | Join a room; ack returns `{code, lang, mode, level}` or `{error}` |
-| `room:players` | server to room | player list | Players, scores and host flag |
-| `game:start` | client to server | `{code}` | Host starts the match |
+| `room:create` | client to server | `{lang, total, mode, level}` | Create a room; ack returns `{ok, code}` |
+| `room:join` | client to server | `{code}` | Join a room; ack returns `{ok, code, lang, mode, level}` or `{error}` |
+| `room:players` | server to room | `[{userId, name, score, isHost}]` | Current players, scores and host flag |
+| `game:start` | client to server | `{code}` | Host requests to start the match |
+| `game:start` | server to room | `{total}` | Announces that the match has started |
 | `game:question` | server to room | `{index, total, text, options, durationMs}` | New question (the correct answer is **not** included) |
 | `game:answer` | client to server | `{code, choice}` | Submit a selected option |
 | `game:answered` | server to room | `{userId}` | Someone answered (shows a check mark) |
-| `game:reveal` | server to room | `{correctIndex, answers, players}` | Correct answer and updated scores |
+| `game:reveal` | server to room | `{correctIndex, answers, players}` | Correct answer and updated scores, after timeout or when all connected players have answered |
 | `game:end` | server to room | `{ranking}` | Final ranking; the match is saved to the database |
 
 ## Getting Started
@@ -312,7 +314,7 @@ quiz-battle/
 | `Cannot find module '/app/dist/main'` | Build output is in the wrong place. Check `backend/tsconfig.build.json` and rebuild with `--build` |
 | `secretOrKey must be provided` | `JWT_SECRET` is missing, or `import 'dotenv/config'` is not at the top of `main.ts` |
 | Web shows 502 | Backend is not up yet or crashed. Check `docker compose logs backend` |
-| Table does not exist | `backend/prisma/migrations` is missing. Run `npx prisma migrate dev --name init` |
+| Table does not exist | Apply the committed migrations with `npx prisma migrate deploy` from `backend/` (or `docker compose exec backend npx prisma migrate deploy` for Docker) |
 | Japanese mode shows an error or too few questions | Kanji data is not seeded (or the chosen JLPT level has too few kanji). Run the seed command |
 | Garbled characters (`?` or a replacement symbol) | A file was saved in the wrong encoding. Re-save it as UTF-8 |
 | Blank page when opening `index.html` directly | Expected. Use `http://localhost` (Docker) or `http://localhost:5173` (dev) |
@@ -321,7 +323,7 @@ quiz-battle/
 ## Limitations
 
 - Active rooms are stored in server memory, so only a single backend instance is supported and running games are lost when the backend restarts. To scale horizontally, use the Socket.IO Redis adapter and keep room state in Redis.
-- The seed script imports kanji of school grades 1 and 2 only (about 240 characters), so higher JLPT levels may have few questions.
+- The seed script imports kanji from the JLPT N5 through N1 lists. A level may still have too few usable questions because question generation requires valid meanings/readings and enough distinct answer options.
 - Reconnecting in the middle of a match does not restore the current question.
 - Cloudflare quick tunnels have no uptime guarantee and are meant for demos, not production.
 
