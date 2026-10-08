@@ -5,6 +5,12 @@ import api from '../api';
 type GameKind = 'time-attack' | 'daily';
 type CefrLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
 type ItemId = 'fifty-fifty' | 'extra-time' | 'hint';
+interface ApiError { response?: { data?: { message?: string | string[] } } }
+
+const apiErrorMessage = (error: unknown, fallback: string) => {
+  const message = (error as ApiError).response?.data?.message;
+  return Array.isArray(message) ? message.join(', ') : message ?? fallback;
+};
 
 interface QuestionView {
   id: string;
@@ -98,8 +104,8 @@ export default function EnglishGame() {
     try {
       const response = await api.post<GameView>('/english-games/start', { kind, level: kind === 'daily' ? 'B1' : level });
       applyGame(response.data);
-    } catch (reason: any) {
-      setError(reason.response?.data?.message ?? 'Không thể bắt đầu lượt chơi.');
+    } catch (reason: unknown) {
+      setError(apiErrorMessage(reason, 'Không thể bắt đầu lượt chơi.'));
     } finally {
       setBusy(false);
     }
@@ -162,7 +168,7 @@ export default function EnglishGame() {
     }
   };
 
-  const useItem = async (item: ItemId) => {
+  const handleUseItem = async (item: ItemId) => {
     if (!game || busy) return;
     setBusy(true);
     setError('');
@@ -170,8 +176,8 @@ export default function EnglishGame() {
       const response = await api.post<GameView>(`/english-games/${game.id}/items`, { item });
       applyGame(response.data);
       if (item === 'hint') setItemHint(response.data.hint ?? '');
-    } catch (reason: any) {
-      setError(reason.response?.data?.message ?? 'Không thể dùng vật phẩm này.');
+    } catch (reason: unknown) {
+      setError(apiErrorMessage(reason, 'Không thể dùng vật phẩm này.'));
     } finally {
       setBusy(false);
     }
@@ -255,7 +261,7 @@ export default function EnglishGame() {
               {(['fifty-fifty', 'extra-time', 'hint'] as ItemId[]).map((item) => {
                 const used = game.usedItems.includes(item);
                 const unsupported = item === 'fifty-fifty' && !canUseFifty;
-                return <button className="item-button" type="button" key={item} disabled={used || unsupported || busy} onClick={() => void useItem(item)}><span className="item-icon">{item === 'fifty-fifty' ? '½' : item === 'extra-time' ? '+' : 'A'}</span><span>{ITEM_LABELS[item]}<small>{used ? 'Đã dùng' : unsupported ? 'Không dùng được ở dạng này' : '1 lần mỗi lượt'}</small></span><b>{used ? '✓' : '↗'}</b></button>;
+                return <button className="item-button" type="button" key={item} disabled={used || unsupported || busy} onClick={() => void handleUseItem(item)}><span className="item-icon">{item === 'fifty-fifty' ? '½' : item === 'extra-time' ? '+' : 'A'}</span><span>{ITEM_LABELS[item]}<small>{used ? 'Đã dùng' : unsupported ? 'Không dùng được ở dạng này' : '1 lần mỗi lượt'}</small></span><b>{used ? '✓' : '↗'}</b></button>;
               })}
             </div>
             <div className="integrity-note"><span className="live-dot" /> Giờ và đáp án được xác thực trên máy chủ.</div>
