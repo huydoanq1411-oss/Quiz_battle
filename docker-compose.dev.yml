@@ -8,5 +8,13 @@ services:
       POSTGRES_DB: quizdb
     volumes:
       - devdata:/var/lib/postgresql/data
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdevdata:/data
 volumes:
   devdata:
+  redisdevdata:

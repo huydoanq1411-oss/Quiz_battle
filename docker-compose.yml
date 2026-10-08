@@ -13,14 +13,29 @@ services:
       timeout: 5s
       retries: 30
 
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
   backend:
     build: ./backend
     restart: always
     environment:
       DATABASE_URL: postgresql://postgres:${DB_PASSWORD}@db:5432/quizdb?schema=public
       JWT_SECRET: ${JWT_SECRET}
+      REDIS_URL: redis://redis:6379
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   frontend:
@@ -33,3 +48,4 @@ services:
 
 volumes:
   dbdata:
+  redisdata:
