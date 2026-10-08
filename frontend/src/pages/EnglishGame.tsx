@@ -75,7 +75,7 @@ export default function EnglishGame() {
   const [itemHint, setItemHint] = useState('');
   const expiryRequested = useRef(false);
 
-  const storageKey = (gameKind: GameKind, gameLevel: CefrLevel, dailyDate?: string) =>
+  const storageKey = (gameKind: GameKind, dailyDate?: string) =>
       gameKind === 'daily'
         ? `quiz-battle:english-game:daily:${dailyDate ?? new Date().toISOString().slice(0, 10)}`
         : `quiz-battle:english-game:time-attack:active`;
@@ -84,13 +84,13 @@ export default function EnglishGame() {
     setGame(next);
     setClockOffset(next.serverNow - Date.now());
     setError('');
-    const key = storageKey(next.kind, next.level, next.dailyDate);
+    const key = storageKey(next.kind, next.dailyDate);
     if (next.kind === 'time-attack' && next.status === 'finished') localStorage.removeItem(key);
     else localStorage.setItem(key, next.id);
   }, []);
 
   useEffect(() => {
-    const key = storageKey(kind, level);
+    const key = storageKey(kind);
     const savedId = localStorage.getItem(key);
     if (!savedId) return;
     api.get<GameView>(`/english-games/${savedId}`).then((response) => applyGame(response.data)).catch(() => {
