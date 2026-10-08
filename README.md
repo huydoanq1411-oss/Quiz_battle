@@ -1,89 +1,89 @@
 # Quiz Battle
 
-A Vietnamese-language competitive English-learning game with CEFR levels from A1 to C2. Play a 60-second Time Attack, complete one shared 10-question Daily Challenge, practise in multiplayer rooms, and climb global Redis leaderboards.
+Quiz Battle là trò chơi thi đấu giúp học tiếng Anh với các cấp độ CEFR từ A1 đến C2. Người chơi có thể thi Time Attack trong 60 giây, hoàn thành Daily Challenge gồm 10 câu giống nhau mỗi ngày, luyện tập trong phòng nhiều người và cạnh tranh trên bảng xếp hạng Redis toàn cục.
 
 ---
 
-## Table of Contents
+## Mục lục
 
-- [Features](#features)
-- [Game Modes](#game-modes)
-- [Screenshots](#screenshots)
-- [Tech Stack](#tech-stack)
-- [Architecture](#architecture)
-- [Game Rules and Scoring](#game-rules-and-scoring)
-- [Data Model](#data-model)
-- [API Reference](#api-reference)
-- [Socket.IO Events](#socketio-events)
-- [Getting Started](#getting-started)
-  - [Run with Docker](#run-with-docker)
-  - [Development Setup](#development-setup)
-  - [Environment Variables](#environment-variables)
-- [Share a Public Link](#share-a-public-link)
-- [Project Structure](#project-structure)
-- [Troubleshooting](#troubleshooting)
-- [Limitations](#limitations)
-- [Roadmap](#roadmap)
+- [Tính năng](#tính-năng)
+- [Chế độ chơi](#chế-độ-chơi)
+- [Ảnh chụp màn hình](#ảnh-chụp-màn-hình)
+- [Công nghệ](#công-nghệ)
+- [Kiến trúc](#kiến-trúc)
+- [Luật chơi và tính điểm](#luật-chơi-và-tính-điểm)
+- [Mô hình dữ liệu](#mô-hình-dữ-liệu)
+- [Tài liệu API](#tài-liệu-api)
+- [Sự kiện Socket.IO](#sự-kiện-socketio)
+- [Bắt đầu](#bắt-đầu)
+   - [Chạy bằng Docker](#chạy-bằng-docker)
+   - [Thiết lập môi trường phát triển](#thiết-lập-môi-trường-phát-triển)
+   - [Biến môi trường](#biến-môi-trường)
+- [Chia sẻ liên kết công khai](#chia-sẻ-liên-kết-công-khai)
+- [Cấu trúc dự án](#cấu-trúc-dự-án)
+- [Xử lý sự cố](#xử-lý-sự-cố)
+- [Giới hạn](#giới-hạn)
+- [Định hướng phát triển](#định-hướng-phát-triển)
 
 ---
 
-## Features
+## Tính năng
 
-- **Authentication**: sign up and log in with JWT; passwords are hashed with bcrypt
-- **Rooms**: create a room, join with a 5-character code, the host starts the game
-- **CEFR learning path**: English vocabulary and grammar from A1 to C2; Vietnamese UI with English learning content
-- **Time Attack**: answer as many questions as possible in 60 seconds; streak combos multiply points
-- **Daily Challenge**: the same seeded 10-question B1 set for everyone each UTC day; one scored completion per player per day and a consecutive-day streak
-- **Practice rooms**: retain the existing room-code multiplayer quiz and match history
-- **Question types**: meaning choice, scrambled letters, fill in the blank, listen and choose with speech synthesis, and Wordle
-- **Power-ups**: 50/50, +10 seconds and first-letter hint; each power-up is usable once per run
-- **Real-time play**: live player list, a check mark when someone has answered, countdown timer
-- **Scoring**: 100 points per correct answer plus up to 50 speed bonus points
-- **Leaderboard**: global Redis sorted sets for today, this week and all time
-- **History**: list of your matches and details of each match
-- **Anti-cheat**: answers, scoring and deadlines are verified server-side; changing tabs is recorded
-- **Dockerized**: the whole stack starts with one command
+- **Tài khoản**: đăng ký và đăng nhập bằng JWT; mật khẩu được băm bằng bcrypt.
+- **Phòng chơi**: tạo phòng, tham gia bằng mã 5 ký tự; chủ phòng có thể bắt đầu trận.
+- **Lộ trình CEFR**: học từ vựng và ngữ pháp tiếng Anh từ A1 đến C2; giao diện tiếng Việt, nội dung học bằng tiếng Anh.
+- **Time Attack**: trả lời nhiều câu nhất có thể trong 60 giây; chuỗi trả lời đúng liên tiếp giúp nhân điểm.
+- **Daily Challenge**: mỗi ngày UTC có cùng một bộ 10 câu B1 cho mọi người; mỗi tài khoản chỉ được tính điểm một lần mỗi ngày và có thể duy trì chuỗi ngày.
+- **Phòng luyện tập**: giữ lại chế độ thi nhiều người bằng mã phòng và lịch sử trận đấu.
+- **Dạng câu hỏi**: chọn nghĩa, xếp chữ cái, điền từ, nghe và chọn đáp án bằng giọng đọc tổng hợp của trình duyệt, cùng Wordle.
+- **Vật phẩm hỗ trợ**: 50/50, thêm 10 giây và gợi ý chữ cái đầu; mỗi vật phẩm chỉ dùng một lần trong một lượt.
+- **Thi đấu thời gian thực**: danh sách người chơi trực tiếp, dấu xác nhận khi người chơi đã trả lời và đồng hồ đếm ngược.
+- **Tính điểm**: 100 điểm cho mỗi câu đúng, cộng tối đa 50 điểm thưởng tốc độ.
+- **Bảng xếp hạng**: dùng Redis sorted set toàn cục cho hôm nay, tuần này và mọi lúc.
+- **Lịch sử**: xem danh sách trận đã chơi và chi tiết từng trận.
+- **Chống gian lận cơ bản**: máy chủ xác thực câu trả lời, điểm số và thời hạn; việc chuyển tab được ghi nhận.
+- **Docker**: khởi động toàn bộ hệ thống bằng một lệnh.
 
-## Screenshots
+## Ảnh chụp màn hình
 
-> Add your screenshots to `docs/screenshots/` and keep the file names below.
-> The screenshot files are not currently present in the repository; add them to this folder for the images to render.
+> Thêm ảnh vào thư mục `docs/screenshots/` và giữ nguyên tên file bên dưới.
+> Hiện repository chưa có các file ảnh này; hãy thêm ảnh vào thư mục để chúng hiển thị trong README.
 
-| Login | Home |
+| Đăng nhập | Trang chủ |
 |---|---|
 | ![Login](docs/screenshots/01-login.png) | ![Home](docs/screenshots/02-home.png) |
 
-| Lobby | Playing |
+| Sảnh chờ | Đang chơi |
 |---|---|
 | ![Lobby](docs/screenshots/03-lobby.png) | ![Playing](docs/screenshots/04-playing.png) |
 
-| Answer reveal | Final result |
+| Công bố đáp án | Kết quả cuối trận |
 |---|---|
 | ![Reveal](docs/screenshots/05-reveal.png) | ![Result](docs/screenshots/06-result.png) |
 
-| Leaderboard | History |
+| Bảng xếp hạng | Lịch sử |
 |---|---|
 | ![Leaderboard](docs/screenshots/07-leaderboard.png) | ![History](docs/screenshots/08-history.png) |
 
-| Grammar mode | Mobile (via tunnel) |
+| Chế độ ngữ pháp | Điện thoại (qua tunnel) |
 |---|---|
 | ![Grammar](docs/screenshots/09-grammar.png) | ![Mobile](docs/screenshots/11-mobile.png) |
 
-**Running containers**
+**Các container đang chạy**
 
 ![Docker](docs/screenshots/10-docker.png)
 
-## Tech Stack
+## Công nghệ
 
-| Layer | Technology |
+| Lớp | Công nghệ |
 |---|---|
 | Frontend | React, TypeScript, Vite, Redux Toolkit, React Router, Axios, Socket.IO client |
 | Backend | NestJS 12, Socket.IO, Passport JWT, bcrypt |
 | Database | PostgreSQL 16, Prisma ORM |
-| Cache / leaderboard / active solo sessions | Redis 7 sorted sets and expiring keys |
-| Deployment | Docker Compose (db, Redis, backend, frontend served by Nginx), Cloudflare Tunnel |
+| Cache / bảng xếp hạng / phiên chơi cá nhân | Redis 7 sorted set và key có thời hạn |
+| Triển khai | Docker Compose (db, Redis, backend, frontend chạy bằng Nginx), Cloudflare Tunnel |
 
-## Architecture
+## Kiến trúc
 
 ```
 Browser / phone
@@ -106,135 +106,136 @@ Browser / phone
  +-----------------------------------------------------------------------+
 ```
 
-- **Nginx** serves the React build and acts as a reverse proxy, so the browser talks to a single address.
-- **REST** (`/api`) handles sign up, login, leaderboard and history.
-- **Socket.IO** (`/socket.io`) handles everything real-time: rooms, questions, answers, scores.
-- Multiplayer room state lives in backend memory; solo sessions, daily completion/streak records, leaderboard scores and player names live in Redis. User accounts and multiplayer match history live in PostgreSQL.
-- Only the `frontend` container publishes a port; the backend and database are reachable only inside the Docker network.
+- **Nginx** phục vụ bản React đã build và làm reverse proxy, nhờ đó trình duyệt chỉ cần kết nối đến một địa chỉ.
+- **REST** (`/api`) xử lý đăng ký, đăng nhập, bảng xếp hạng và lịch sử.
+- **Socket.IO** (`/socket.io`) xử lý các hoạt động thời gian thực như phòng chơi, câu hỏi, câu trả lời và điểm số.
+- Trạng thái phòng multiplayer được lưu trong bộ nhớ backend; phiên chơi cá nhân, trạng thái hoàn thành Daily Challenge/chuỗi ngày, điểm xếp hạng và tên người chơi được lưu trong Redis. Tài khoản và lịch sử trận multiplayer được lưu trong PostgreSQL.
+- Chỉ container `frontend` mở cổng ra máy chủ; backend và database chỉ truy cập được bên trong mạng Docker.
 
-## Game Rules and Scoring
+## Luật chơi và tính điểm
 
-| Rule | Value |
+| Luật | Giá trị |
 |---|---|
-| Time Attack | 60 seconds for as many answers as possible |
-| Daily Challenge | 10 deterministic B1 questions per UTC day |
-| Multiplayer practice | 15 seconds per question; 3-second answer reveal |
-| Questions per multiplayer match | 3 to 20 (host chooses) |
-| Correct answer | 100 points |
-| Speed bonus | up to 50 points, proportional to remaining time |
-| Solo combo | 10 base points per correct answer; every three consecutive correct answers adds a multiplier, up to 5× |
-| Early finish | if every connected player has answered, the question ends immediately |
+| Time Attack | 60 giây, trả lời được càng nhiều câu càng tốt |
+| Daily Challenge | 10 câu B1 cố định theo ngày UTC |
+| Phòng multiplayer | 15 giây mỗi câu; công bố đáp án trong 3 giây |
+| Số câu mỗi trận multiplayer | Từ 3 đến 20 câu (chủ phòng chọn) |
+| Trả lời đúng | 100 điểm |
+| Điểm thưởng tốc độ | Tối đa 50 điểm, tỷ lệ theo thời gian còn lại |
+| Combo cá nhân | 10 điểm cơ bản cho mỗi câu đúng; cứ 3 câu đúng liên tiếp thì hệ số tăng, tối đa 5× |
+| Kết thúc sớm | Câu hỏi kết thúc ngay khi tất cả người chơi đang kết nối đã trả lời |
 
-All timing and scoring are calculated on the server. The client displays the server deadline and countdown.
+Máy chủ tính thời gian và điểm số. Giao diện hiển thị hạn chót và đồng hồ đếm ngược do máy chủ cung cấp.
 
-## Game Modes
+## Chế độ chơi
 
-| Mode | Skill | Status |
+| Dạng chơi | Kỹ năng | Trạng thái |
 |---|---|---|
-| Meaning choice | Vocabulary | Ready |
-| Letter order | Spelling | Ready |
-| Fill gap | Grammar | Ready |
-| Listen choice | Listening with browser speech synthesis | Ready |
-| Wordle | Vocabulary and spelling | Ready |
-| Picture match, Hangman, error correction, sentence order, speaking, reading, word chain, crossword, Boggle | Mixed | Scaffolded with TODO markers |
+| Chọn nghĩa | Từ vựng | Sẵn sàng |
+| Xếp chữ cái | Chính tả | Sẵn sàng |
+| Điền vào chỗ trống | Ngữ pháp | Sẵn sàng |
+| Nghe và chọn đáp án | Nghe bằng chức năng đọc tiếng Anh của trình duyệt | Sẵn sàng |
+| Wordle | Từ vựng và chính tả | Sẵn sàng |
+| Ghép tranh, Hangman, sửa lỗi, xếp câu, nói, đọc hiểu, nối từ, ô chữ, Boggle | Tổng hợp | Đã tạo khung, còn TODO |
 
-Solo games share the module contract in `backend/src/quiz/english-game-modes.ts`: each module declares an ID and skill, generates a question from a CEFR level and supplied random source, then checks an answer. Time Attack selects from ready modules. Daily Challenge chooses reproducible modules/questions from the UTC date seed.
+Các trò chơi cá nhân dùng chung interface module trong `backend/src/quiz/english-game-modes.ts`: mỗi module khai báo ID và kỹ năng, tạo câu hỏi theo cấp CEFR cùng bộ sinh số ngẫu nhiên được truyền vào, sau đó kiểm tra câu trả lời. Time Attack chọn các module đã hoàn thiện. Daily Challenge chọn module và câu hỏi có thể tái tạo từ seed theo ngày UTC.
 
-### Add a game mode or question
+### Thêm dạng chơi hoặc câu hỏi
 
-1. Add vocabulary or grammar entries with a `level` (`A1` through `C2`) to `backend/src/quiz/english-learning-bank.ts`. Include at least four entries per level for useful multiple-choice distractors.
-2. Add an `EnglishModeId` and an `EnglishGameModule` in `english-game-modes.ts`. Implement `generateQuestion(level, random)` using the supplied random function so Daily Challenge remains reproducible, and implement `checkAnswer` on the server.
-3. Add the mode ID to `PLAYABLE_MODES` only after it is ready. Add it to `DAILY_MODES` only when it is suitable for a shared daily challenge. Scaffolded modules have `todo: true` and are deliberately excluded.
-4. Add a focused test in `english-game-modes.spec.ts`, then run `npm run build`, `npm run lint` and `npm test -- --runInBand src/quiz/english-game-modes.spec.ts` from `backend/`.
+1. Thêm mục từ vựng hoặc ngữ pháp có `level` từ `A1` đến `C2` vào `backend/src/quiz/english-learning-bank.ts`. Nên có ít nhất 4 mục mỗi cấp độ để tạo phương án nhiễu trắc nghiệm.
+2. Khai báo `EnglishModeId` và `EnglishGameModule` trong `english-game-modes.ts`. Cài đặt `generateQuestion(level, random)` bằng hàm random được truyền vào để Daily Challenge luôn tái tạo được, đồng thời cài đặt `checkAnswer` ở server.
+3. Chỉ thêm ID vào `PLAYABLE_MODES` khi dạng chơi đã sẵn sàng. Chỉ thêm vào `DAILY_MODES` nếu phù hợp với thử thách chung hằng ngày. Module đang dựng khung có `todo: true` nên sẽ không được chọn.
+4. Thêm test tập trung trong `english-game-modes.spec.ts`, sau đó chạy `npm run build`, `npm run lint` và `npm test -- --runInBand src/quiz/english-game-modes.spec.ts` từ thư mục `backend/`.
 
-## Data Model
+## Mô hình dữ liệu
 
-| Model | Fields | Purpose |
+| Model | Trường | Mục đích |
 |---|---|---|
-| `User` | id, email (unique), name, password (hashed), createdAt | Accounts |
-| `Match` | id, code, language (`EN`/`JA`), totalQuestions, createdAt | One finished game |
-| `MatchPlayer` | id, matchId, userId, score, rank | A player's result in a match |
-| `KanjiCard` | id, kanji (unique), meanings, kunReadings, onReadings, jlpt, grade | Retained legacy question data |
+| `User` | id, email (duy nhất), name, password (đã băm), createdAt | Tài khoản |
+| `Match` | id, code, language (`EN`/`JA`), totalQuestions, createdAt | Một trận đã kết thúc |
+| `MatchPlayer` | id, matchId, userId, score, rank | Kết quả người chơi trong trận |
+| `KanjiCard` | id, kanji (duy nhất), meanings, kunReadings, onReadings, jlpt, grade | Dữ liệu câu hỏi cũ được giữ tương thích |
 
-Relation: `User` - `MatchPlayer` - `Match` (many-to-many through `MatchPlayer`).
+Quan hệ: `User` - `MatchPlayer` - `Match` (quan hệ nhiều-nhiều thông qua `MatchPlayer`).
 
-English practice questions come from `backend/src/quiz/english-learning-bank.ts`; question-game contracts live in `backend/src/quiz/english-game-modes.ts`. The legacy `KanjiCard` model and multiplayer match APIs remain for compatibility.
+Câu hỏi luyện tiếng Anh nằm trong `backend/src/quiz/english-learning-bank.ts`; interface các dạng chơi nằm trong `backend/src/quiz/english-game-modes.ts`. Model `KanjiCard` cũ và API trận multiplayer vẫn được giữ để tương thích.
 
-## API Reference
+## Tài liệu API
 
-All REST routes use the `/api` prefix. Routes marked "auth" need the header `Authorization: Bearer <token>`.
+Tất cả route REST đều có tiền tố `/api`. Route yêu cầu xác thực cần header `Authorization: Bearer <token>`.
 
-| Method | Route | Auth | Description |
+| Phương thức | Route | Xác thực | Mô tả |
 |---|---|---|---|
-| POST | `/api/auth/register` | no | Body `{email, name, password}` (password at least 6 characters). Returns `{token, user}` |
-| POST | `/api/auth/login` | no | Body `{email, password}`. Returns `{token, user}` |
-| GET | `/api/auth/me` | yes | Current user |
-| GET | `/api/matches/mine` | yes | Your last 20 matches |
-| GET | `/api/matches/leaderboard?lang=EN\|JA` | yes | Legacy multiplayer match leaderboard |
-| GET | `/api/matches/:id` | yes | Match details with ranking |
-| POST | `/api/english-games/start` | yes | Start or resume `{kind: time-attack\|daily, level: A1..C2}` |
-| GET | `/api/english-games/:id` | yes | Resume a Redis-backed solo session |
-| POST | `/api/english-games/:id/answer` | yes | Submit an answer; the correct answer is never returned |
-| POST | `/api/english-games/:id/items` | yes | Use `fifty-fifty`, `extra-time` or `hint` once per run |
-| POST | `/api/english-games/:id/tab-hidden` | yes | Record a tab visibility change during a run |
-| GET | `/api/english-games/leaderboard?scope=today\|week\|all` | yes | Global top 10 from Redis sorted sets |
+| Phương thức | Route | Xác thực | Mô tả |
+| POST | `/api/auth/register` | Không | Body `{email, name, password}` (mật khẩu tối thiểu 6 ký tự). Trả về `{token, user}` |
+| POST | `/api/auth/login` | Không | Body `{email, password}`. Trả về `{token, user}` |
+| GET | `/api/auth/me` | Có | Thông tin người dùng hiện tại |
+| GET | `/api/matches/mine` | Có | 20 trận gần nhất của bạn |
+| GET | `/api/matches/leaderboard?lang=EN\|JA` | Có | Bảng xếp hạng trận multiplayer cũ |
+| GET | `/api/matches/:id` | Có | Chi tiết trận và thứ hạng |
+| POST | `/api/english-games/start` | Có | Bắt đầu hoặc tiếp tục `{kind: time-attack\|daily, level: A1..C2}` |
+| GET | `/api/english-games/:id` | Có | Tiếp tục phiên chơi cá nhân được lưu trong Redis |
+| POST | `/api/english-games/:id/answer` | Có | Gửi câu trả lời; đáp án đúng không bao giờ được trả về |
+| POST | `/api/english-games/:id/items` | Có | Dùng `fifty-fifty`, `extra-time` hoặc `hint` một lần mỗi lượt |
+| POST | `/api/english-games/:id/tab-hidden` | Có | Ghi nhận việc chuyển tab trong lượt chơi |
+| GET | `/api/english-games/leaderboard?scope=today\|week\|all` | Có | Top 10 toàn cục từ Redis sorted set |
 
-## Socket.IO Events
+## Sự kiện Socket.IO
 
-The socket handshake must include the JWT: `io({ auth: { token } })`. Invalid tokens are rejected.
+Gói bắt tay Socket.IO phải có JWT: `io({ auth: { token } })`. Token không hợp lệ sẽ bị từ chối.
 
-| Event | Direction | Payload | Description |
+| Sự kiện | Chiều | Payload | Mô tả |
 |---|---|---|---|
-| `room:create` | client to server | `{lang, total, mode, level}` | Create a room; ack returns `{ok, code}` |
-| `room:join` | client to server | `{code}` | Join a room; ack returns `{ok, code, lang, mode, level}` or `{error}` |
-| `room:players` | server to room | `[{userId, name, score, isHost}]` | Current players, scores and host flag |
-| `game:start` | client to server | `{code}` | Host requests to start the match |
-| `game:start` | server to room | `{total}` | Announces that the match has started |
-| `game:question` | server to room | `{index, total, text, options, durationMs}` | New question (the correct answer is **not** included) |
-| `game:answer` | client to server | `{code, choice}` | Submit a selected option |
-| `game:answered` | server to room | `{userId}` | Someone answered (shows a check mark) |
-| `game:reveal` | server to room | `{correctIndex, answers, players}` | Correct answer and updated scores, after timeout or when all connected players have answered |
-| `game:end` | server to room | `{ranking}` | Final ranking; the match is saved to the database |
+| `room:create` | client → server | `{lang, total, mode, level}` | Tạo phòng; ack trả về `{ok, code}` |
+| `room:join` | client → server | `{code}` | Vào phòng; ack trả về `{ok, code, lang, mode, level}` hoặc `{error}` |
+| `room:players` | server → phòng | `[{userId, name, score, isHost}]` | Danh sách người chơi, điểm và trạng thái chủ phòng |
+| `game:start` | client → server | `{code}` | Chủ phòng yêu cầu bắt đầu trận |
+| `game:start` | server → phòng | `{total}` | Thông báo trận đấu đã bắt đầu |
+| `game:question` | server → phòng | `{index, total, text, options, durationMs}` | Câu hỏi mới (không gửi kèm đáp án đúng) |
+| `game:answer` | client → server | `{code, choice}` | Gửi phương án đã chọn |
+| `game:answered` | server → phòng | `{userId}` | Thông báo người chơi đã trả lời (hiện dấu ✓) |
+| `game:reveal` | server → phòng | `{correctIndex, answers, players}` | Công bố đáp án và điểm mới khi hết giờ hoặc mọi người đang kết nối đã trả lời |
+| `game:end` | server → phòng | `{ranking}` | Bảng xếp hạng cuối trận; kết quả được lưu vào database |
 
-## Getting Started
+## Bắt đầu
 
-### Run with Docker
+### Chạy bằng Docker
 
-Requirement: [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+Yêu cầu: [Docker Desktop](https://www.docker.com/products/docker-desktop/).
 
-1. Create a `.env` file in the project root (see `.env.example`):
+1. Tạo file `.env` ở thư mục gốc (tham khảo `.env.example`):
 
    ```env
    DB_PASSWORD=your-alphanumeric-password
    JWT_SECRET=a-long-random-secret
    ```
 
-   Use letters and digits only for the password, because it is embedded in the database connection URL.
+   Chỉ dùng chữ cái và chữ số cho mật khẩu vì giá trị này được ghép vào URL kết nối database.
 
-2. Build and start everything:
+2. Build và khởi động toàn bộ hệ thống:
 
    ```bash
    docker compose up -d --build
    docker compose ps
    ```
 
-   All four services (`db`, `redis`, `backend`, `frontend`) should be `Up`. The first build takes a few minutes. English questions ship with the backend; no seed step is needed. This Compose file publishes the web app on port `80`; PostgreSQL and Redis stay inside the Docker network.
+   Cả bốn service (`db`, `redis`, `backend`, `frontend`) phải ở trạng thái `Up`. Lần build đầu tiên có thể mất vài phút. Câu hỏi tiếng Anh đã đi kèm backend nên không cần seed dữ liệu. Compose này mở web ở cổng `80`; PostgreSQL và Redis chỉ hoạt động trong mạng Docker.
 
-3. Open **http://localhost**.
+3. Mở **http://localhost**.
 
-Useful commands:
+Các lệnh thường dùng:
 
-| Command | Effect |
+| Lệnh | Tác dụng |
 |---|---|
-| `docker compose up -d` | Start the stack in the background |
-| `docker compose up -d --build` | Rebuild after code changes |
-| `docker compose ps` | Show running services |
-| `docker compose logs -f backend` | Follow backend logs |
-| `docker compose logs -f redis` | Follow Redis logs |
-| `docker compose restart backend` | Restart only the backend |
-| `docker compose down` | Stop and remove containers (data is kept) |
+| `docker compose up -d` | Chạy stack ở chế độ nền |
+| `docker compose up -d --build` | Build lại sau khi sửa code |
+| `docker compose ps` | Xem trạng thái các service |
+| `docker compose logs -f backend` | Theo dõi log backend |
+| `docker compose logs -f redis` | Theo dõi log Redis |
+| `docker compose restart backend` | Chỉ khởi động lại backend |
+| `docker compose down` | Dừng và xóa container (giữ nguyên dữ liệu) |
 
-After changing source code for the Docker version, rebuild and restart the images:
+Sau khi sửa code cho bản Docker, build và khởi động lại các image:
 
 ```powershell
 cd F:\quiz-battle
@@ -242,17 +243,17 @@ docker compose up -d --build
 docker compose ps
 ```
 
-Then open or refresh **http://localhost**. Use **Ctrl+F5** to force-refresh cached browser files. Unlike dev mode, Docker serves a built frontend, so source edits are not visible until the image is rebuilt.
+Sau đó mở hoặc tải lại **http://localhost**. Nhấn **Ctrl+F5** để buộc trình duyệt tải lại file, bỏ qua cache. Khác với chế độ dev, Docker phục vụ frontend đã build nên thay đổi source chỉ xuất hiện sau khi build lại image.
 
-> `docker compose down -v` deletes PostgreSQL and Redis data, including accounts, match history, leaderboard scores and daily streaks.
+> `docker compose down -v` sẽ xóa dữ liệu PostgreSQL và Redis, bao gồm tài khoản, lịch sử trận, điểm xếp hạng và chuỗi Daily Challenge.
 
-If port 80 is already in use, change `"80:80"` to `"8080:80"` in `docker-compose.yml` and open `http://localhost:8080`.
+Nếu cổng 80 đang được sử dụng, đổi `"80:80"` thành `"8080:80"` trong `docker-compose.yml` rồi mở `http://localhost:8080`.
 
-### Development Setup
+### Thiết lập môi trường phát triển
 
-Use this mode while editing code. Requirements: Node.js 20+, npm and Docker Desktop. Open **three separate PowerShell windows** and leave all three running.
+Dùng chế độ này khi đang sửa code. Yêu cầu: Node.js 20+, npm và Docker Desktop. Mở **ba cửa sổ PowerShell riêng biệt** và giữ cả ba cửa sổ hoạt động.
 
-**PowerShell 1: PostgreSQL and Redis** — from the project root:
+**PowerShell 1: PostgreSQL và Redis** — chạy từ thư mục gốc dự án:
 
 ```powershell
 cd F:\quiz-battle
@@ -260,9 +261,9 @@ docker compose -f docker-compose.dev.yml up -d
 docker compose -f docker-compose.dev.yml ps
 ```
 
-The development database is available on port `5433`; Redis is available on port `6379`.
+Database phát triển được mở ở cổng `5433`; Redis ở cổng `6379`.
 
-**PowerShell 2: Backend** — one-time setup, then start the NestJS watch server:
+**PowerShell 2: Backend** — thiết lập một lần, sau đó chạy NestJS ở chế độ theo dõi file:
 
 ```powershell
 cd F:\quiz-battle\backend
@@ -272,9 +273,9 @@ npx prisma migrate dev       # only when setting up/updating the database schema
 npm run start:dev
 ```
 
-The backend runs at `http://localhost:3000` and restarts when backend files change.
+Backend chạy tại `http://localhost:3000` và tự khởi động lại khi file backend thay đổi.
 
-**PowerShell 3: Frontend** — one-time dependency setup, then start Vite:
+**PowerShell 3: Frontend** — cài dependency một lần, sau đó chạy Vite:
 
 ```powershell
 cd F:\quiz-battle\frontend
@@ -282,27 +283,27 @@ npm install                  # only the first time, or after dependency changes
 npm run dev
 ```
 
-Open **http://localhost:5173** (keep `:5173` in the address). Vite proxies `/api` and `/socket.io` to the backend on port `3000`; frontend edits appear immediately and backend edits trigger NestJS watch reloads. The development PostgreSQL volume is separate from the production Compose database, so accounts and match history do not carry over. Redis data is also separate between the two Compose projects.
+Mở **http://localhost:5173** (nhớ giữ `:5173` trong địa chỉ). Vite chuyển tiếp `/api` và `/socket.io` đến backend ở cổng `3000`; thay đổi frontend xuất hiện ngay, còn thay đổi backend sẽ kích hoạt NestJS khởi động lại. Volume PostgreSQL dùng cho phát triển tách biệt với database của Compose production nên tài khoản và lịch sử trận không được dùng chung. Dữ liệu Redis giữa hai Compose project cũng tách biệt.
 
-To stop the development database and Redis, run this from the project root after stopping the two npm processes with `Ctrl+C`:
+Để dừng database và Redis phát triển, trước hết nhấn `Ctrl+C` ở hai cửa sổ đang chạy npm, sau đó chạy lệnh này từ thư mục gốc:
 
 ```powershell
 docker compose -f docker-compose.dev.yml down
 ```
 
-To test with two players on one computer, use a normal window and an incognito window (they keep separate `localStorage`, so they log in as different users).
+Để thử với hai người chơi trên cùng máy, dùng một cửa sổ bình thường và một cửa sổ ẩn danh (mỗi cửa sổ có `localStorage` riêng nên có thể đăng nhập hai tài khoản khác nhau).
 
-### Environment Variables
+### Biến môi trường
 
-| File | Variable | Description |
+| File | Biến | Mô tả |
 |---|---|---|
-| `.env` (root) | `DB_PASSWORD` | PostgreSQL password used by Docker Compose |
-| `.env` (root) | `JWT_SECRET` | Secret used to sign JWTs |
-| `backend/.env` | `DATABASE_URL` | Connection string for local development, e.g. `postgresql://postgres:<password>@localhost:5433/quizdb` |
-| `backend/.env` | `JWT_SECRET` | Same purpose as above |
-| `backend/.env` | `REDIS_URL` | Redis connection; defaults to `redis://localhost:6379` for local development |
+| `.env` (thư mục gốc) | `DB_PASSWORD` | Mật khẩu PostgreSQL dùng bởi Docker Compose |
+| `.env` (thư mục gốc) | `JWT_SECRET` | Khóa bí mật dùng để ký JWT |
+| `backend/.env` | `DATABASE_URL` | Chuỗi kết nối khi phát triển local, ví dụ `postgresql://postgres:<password>@localhost:5433/quizdb` |
+| `backend/.env` | `JWT_SECRET` | Khóa bí mật dùng để ký JWT |
+| `backend/.env` | `REDIS_URL` | URL kết nối Redis; mặc định local là `redis://localhost:6379` |
 
-`.env` files are git-ignored. Copy the `.env.example` files and fill in your own values. **Never commit real secrets.**
+Các file `.env` được Git bỏ qua. Hãy sao chép file `.env.example` rồi điền giá trị riêng. **Không commit secret thật lên repository.**
 
 ## Share a Public Link
 
