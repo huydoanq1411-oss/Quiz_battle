@@ -218,7 +218,7 @@ Requirement: [Docker Desktop](https://www.docker.com/products/docker-desktop/).
    docker compose ps
    ```
 
-   All four services (`db`, `redis`, `backend`, `frontend`) should be `Up`. The first build takes a few minutes. English questions ship with the backend; no seed step is needed.
+   All four services (`db`, `redis`, `backend`, `frontend`) should be `Up`. The first build takes a few minutes. English questions ship with the backend; no seed step is needed. This Compose file publishes the web app on port `80`; PostgreSQL and Redis stay inside the Docker network.
 
 3. Open **http://localhost**.
 
@@ -234,32 +234,61 @@ Useful commands:
 | `docker compose restart backend` | Restart only the backend |
 | `docker compose down` | Stop and remove containers (data is kept) |
 
+After changing source code for the Docker version, rebuild and restart the images:
+
+```powershell
+cd F:\quiz-battle
+docker compose up -d --build
+docker compose ps
+```
+
+Then open or refresh **http://localhost**. Use **Ctrl+F5** to force-refresh cached browser files. Unlike dev mode, Docker serves a built frontend, so source edits are not visible until the image is rebuilt.
+
 > `docker compose down -v` deletes PostgreSQL and Redis data, including accounts, match history, leaderboard scores and daily streaks.
 
 If port 80 is already in use, change `"80:80"` to `"8080:80"` in `docker-compose.yml` and open `http://localhost:8080`.
 
 ### Development Setup
 
-Requirements: Node.js 20+ and Docker (for PostgreSQL and Redis).
+Use this mode while editing code. Requirements: Node.js 20+, npm and Docker Desktop. Open **three separate PowerShell windows** and leave all three running.
 
-```bash
-# 1. PostgreSQL (port 5433) and Redis (port 6379) for development
+**PowerShell 1: PostgreSQL and Redis** — from the project root:
+
+```powershell
+cd F:\quiz-battle
 docker compose -f docker-compose.dev.yml up -d
+docker compose -f docker-compose.dev.yml ps
+```
 
-# 2. Backend (http://localhost:3000)
-cd backend
-cp .env.example .env        # on Windows PowerShell: Copy-Item .env.example .env
-npm install
-npx prisma migrate dev
+The development database is available on port `5433`; Redis is available on port `6379`.
+
+**PowerShell 2: Backend** — one-time setup, then start the NestJS watch server:
+
+```powershell
+cd F:\quiz-battle\backend
+Copy-Item .env.example .env   # only the first time
+npm install                  # only the first time, or after dependency changes
+npx prisma migrate dev       # only when setting up/updating the database schema
 npm run start:dev
+```
 
-# 3. Frontend (http://localhost:5173)
-cd ../frontend
-npm install
+The backend runs at `http://localhost:3000` and restarts when backend files change.
+
+**PowerShell 3: Frontend** — one-time dependency setup, then start Vite:
+
+```powershell
+cd F:\quiz-battle\frontend
+npm install                  # only the first time, or after dependency changes
 npm run dev
 ```
 
-The Vite dev server proxies `/api` and `/socket.io` to the backend on port 3000. The development database and the Docker stack database are **separate**, so accounts do not carry over. Redis-backed solo sessions and leaderboard data are global to whichever Redis service the backend connects to.
+Open **http://localhost:5173** (keep `:5173` in the address). Vite proxies `/api` and `/socket.io` to the backend on port `3000`; frontend edits appear immediately and backend edits trigger NestJS watch reloads. The development PostgreSQL volume is separate from the production Compose database, so accounts and match history do not carry over. Redis data is also separate between the two Compose projects.
+
+To stop the development database and Redis, run this from the project root after stopping the two npm processes with `Ctrl+C`:
+
+```powershell
+docker compose -f docker-compose.dev.yml down
+```
 
 To test with two players on one computer, use a normal window and an incognito window (they keep separate `localStorage`, so they log in as different users).
 
@@ -355,7 +384,7 @@ quiz-battle/
 | English level has too few questions | Add vocabulary and grammar entries for that CEFR level in `english-learning-bank.ts` |
 | Garbled characters (`?` or a replacement symbol) | A file was saved in the wrong encoding. Re-save it as UTF-8 |
 | Blank page when opening `index.html` directly | Expected. Use `http://localhost` (Docker) or `http://localhost:5173` (dev) |
-| Page not updated after editing code | Docker serves a built copy. Run `docker compose up -d --build` |
+| Page not updated after editing code | Dev mode: open `http://localhost:5173` and check Vite is running. Docker mode: run `docker compose up -d --build`, then press `Ctrl+F5` at `http://localhost` |
 
 ## Limitations
 
