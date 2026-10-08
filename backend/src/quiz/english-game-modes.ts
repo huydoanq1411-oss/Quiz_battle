@@ -50,6 +50,7 @@ const shuffle = <T,>(items: readonly T[], random: () => number): T[] => {
 };
 
 const normalize = (value: string) => value.trim().toLocaleLowerCase('en-US').replace(/\s+/g, ' ');
+const questionId = (mode: EnglishModeId, random: () => number) => `${mode}:${Math.floor(random() * 0xffffffff).toString(36)}`;
 
 const vocabularyEntry = (level: CefrLevel, random: () => number) => {
   const entries = VOCABULARY.filter((entry) => entry.level === level);
@@ -89,7 +90,7 @@ export const ENGLISH_GAME_MODULES: readonly EnglishGameModule[] = [
       const entry = vocabularyEntry(level, random);
       const distractors = shuffle(VOCABULARY.filter((item) => item.level === level && item.word !== entry.word), random)
         .slice(0, 3).map((item) => item.meaning);
-      return choiceQuestion(entry.word, 'meaning-choice', this.skill, `“${entry.word}” có nghĩa là gì?`, entry.meaning, distractors, random);
+      return choiceQuestion(questionId(this.id, random), 'meaning-choice', this.skill, `“${entry.word}” có nghĩa là gì?`, entry.meaning, distractors, random);
     },
     checkAnswer: (question, answer) => normalize(question.answer) === normalize(answer),
   },
@@ -99,7 +100,7 @@ export const ENGLISH_GAME_MODULES: readonly EnglishGameModule[] = [
     generateQuestion(level, random) {
       const entry = vocabularyEntry(level, random);
       return {
-        id: entry.word, mode: this.id, skill: this.skill,
+        id: questionId(this.id, random), mode: this.id, skill: this.skill,
         prompt: `Sắp xếp chữ cái để tạo từ có nghĩa “${entry.meaning}”.`,
         letters: shuffle(Array.from(entry.word.toLocaleUpperCase('en-US')), random),
         hint: entry.word[0].toLocaleUpperCase('en-US'), answer: entry.word,
@@ -112,7 +113,7 @@ export const ENGLISH_GAME_MODULES: readonly EnglishGameModule[] = [
     skill: 'Ngữ pháp',
     generateQuestion(level, random) {
       const entry = grammarEntry(level, random);
-      return choiceQuestion(entry.sentence, 'fill-gap', this.skill, entry.sentence, entry.answer, entry.distractors, random);
+      return choiceQuestion(questionId(this.id, random), 'fill-gap', this.skill, entry.sentence, entry.answer, entry.distractors, random);
     },
     checkAnswer: (question, answer) => normalize(question.answer) === normalize(answer),
   },
@@ -123,7 +124,7 @@ export const ENGLISH_GAME_MODULES: readonly EnglishGameModule[] = [
       const entry = vocabularyEntry(level, random);
       const distractors = shuffle(VOCABULARY.filter((item) => item.level === level && item.word !== entry.word), random)
         .slice(0, 3).map((item) => item.meaning);
-      return choiceQuestion(entry.word, 'listen-choice', this.skill, 'Nghe từ tiếng Anh rồi chọn nghĩa phù hợp.', entry.meaning, distractors, random, entry.word);
+      return choiceQuestion(questionId(this.id, random), 'listen-choice', this.skill, 'Nghe từ tiếng Anh rồi chọn nghĩa phù hợp.', entry.meaning, distractors, random, entry.word);
     },
     checkAnswer: (question, answer) => normalize(question.answer) === normalize(answer),
   },
@@ -133,7 +134,7 @@ export const ENGLISH_GAME_MODULES: readonly EnglishGameModule[] = [
     generateQuestion(level, random) {
       const entry = vocabularyEntry(level, random);
       return {
-        id: entry.word, mode: this.id, skill: this.skill,
+        id: questionId(this.id, random), mode: this.id, skill: this.skill,
         prompt: `Đoán từ tiếng Anh có nghĩa “${entry.meaning}”.`,
         answerLength: Array.from(entry.word).length, hint: `${Array.from(entry.word).length} chữ cái`, answer: entry.word,
       };
@@ -146,7 +147,7 @@ export const ENGLISH_GAME_MODULES: readonly EnglishGameModule[] = [
     todo: true,
     generateQuestion(level, random) {
       const entry = vocabularyEntry(level, random);
-      return { id: entry.word, mode: id, skill: this.skill, prompt: 'TODO: hoàn thiện dạng chơi này.', hint: '', answer: entry.word };
+      return { id: questionId(id, random), mode: id, skill: this.skill, prompt: 'TODO: hoàn thiện dạng chơi này.', hint: '', answer: entry.word };
     },
     checkAnswer: () => false,
   })),

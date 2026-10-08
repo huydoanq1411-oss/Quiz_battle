@@ -20,6 +20,11 @@ const shuffle = <T,>(a: T[]) => {
   }
   return r;
 };
+const sample = <T,>(items: readonly T[], count: number) => {
+  if (items.length === 0) throw new Error('Không có dữ liệu câu hỏi cho cấp độ này.');
+  const shuffled = shuffle(items);
+  return Array.from({ length: count }, (_, index) => shuffled[index % shuffled.length]);
+};
 const clean = (s?: string) => s?.replace(/[.-]/g, '');
 
 @Injectable()
@@ -35,8 +40,7 @@ export class QuestionService {
   private english(n: number, mode: EnglishMode, level: EnglishLevel): Question[] {
     if (mode === 'IELTS') {
       const items = GRAMMAR.filter((item) => item.level === level);
-      if (n > items.length) throw new Error(`Chỉ có ${items.length} câu IELTS ở cấp độ ${level}`);
-      return shuffle([...items]).slice(0, n).map((item) => {
+      return sample(items, n).map((item) => {
         const options = shuffle([item.answer, ...item.distractors]);
         return {
           text: `Chọn đáp án phù hợp nhất để hoàn thành câu:\n${item.sentence}`,
@@ -47,8 +51,7 @@ export class QuestionService {
     }
 
     const items = VOCABULARY.filter((item) => item.level === level);
-    if (n > items.length) throw new Error(`Chỉ có ${items.length} câu từ vựng ở cấp độ ${level}`);
-    return shuffle([...items]).slice(0, n).map((item) => {
+    return sample(items, n).map((item) => {
       const distractors = shuffle(items.filter((candidate) => candidate.word !== item.word));
       const options = shuffle([item.meaning, ...distractors.slice(0, 3).map((candidate) => candidate.meaning)]);
       return {

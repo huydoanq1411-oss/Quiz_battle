@@ -21,6 +21,7 @@ interface GameView {
   id: string;
   kind: GameKind;
   level: CefrLevel;
+  dailyDate?: string;
   status: 'playing' | 'finished';
   score: number;
   streak: number;
@@ -68,10 +69,16 @@ export default function EnglishGame() {
   const startKey = useRef('');
   const expiryRequested = useRef(false);
 
+  const storageKey = (gameKind: GameKind, gameLevel: CefrLevel, dailyDate?: string) =>
+    `quiz-battle:english-game:${gameKind}:${gameLevel}:${gameKind === 'daily' ? dailyDate ?? new Date().toISOString().slice(0, 10) : 'active'}`;
+
   const applyGame = useCallback((next: GameView) => {
     setGame(next);
     setClockOffset(next.serverNow - Date.now());
     setError('');
+    const key = storageKey(next.kind, next.level, next.dailyDate);
+    if (next.kind === 'time-attack' && next.status === 'finished') localStorage.removeItem(key);
+    else localStorage.setItem(key, next.id);
   }, []);
 
   useEffect(() => {
@@ -80,11 +87,15 @@ export default function EnglishGame() {
     startKey.current = key;
     setGame(null);
     setError('');
-    api.post<GameView>('/english-games/start', { kind, level })
-      .then((response) => applyGame(response.data))
-      .catch((reason: { response?: { data?: { message?: string } } }) => {
-        setError(reason.response?.data?.message ?? 'Không thể bắt đầu lượt chơi.');
-      });
+    const keyForLevel = storageKey(kind, level);
+    const savedId = localStorage.getItem(keyForLevel);
+    const startNew = () => api.post<GameView>('/english-games/start', { kind, level }).then((response) => applyGame(response.data));
+    const resume = savedId
+      ? api.get<GameView>(`/english-games/${savedId}`).then((response) => applyGame(response.data)).catch(startNew)
+      : startNew();
+    void resume.catch((reason: { response?: { data?: { message?: string } } }) => {
+      setError(reason.response?.data?.message ?? 'Không thể bắt đầu lượt chơi.');
+    });
   }, [applyGame, kind, level]);
 
   useEffect(() => {

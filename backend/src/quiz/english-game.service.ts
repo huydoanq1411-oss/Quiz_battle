@@ -103,8 +103,16 @@ export class EnglishGameService {
       endsAt: now + (kind === 'daily' ? 15 * DAILY_QUESTION_COUNT * 1000 : TIME_ATTACK_MS),
       question: this.makeQuestion(kind, level, sessionSeed(kind, dailyDate, id, 0), 0),
     };
+    if (dailyDate) {
+      const reserved = await this.redis.client.set(this.dailyActiveKey(userId, dailyDate), id, 'EX', SESSION_TTL_SECONDS, 'NX');
+      if (!reserved) {
+        const activeId = await this.redis.client.get(this.dailyActiveKey(userId, dailyDate));
+        const activeSession = activeId ? await this.readSession(activeId) : null;
+        if (activeSession?.status === 'playing') return this.publicState(activeSession);
+        throw new Error('Daily Challenge đang được mở ở một cửa sổ khác.');
+      }
+    }
     await this.saveSession(session);
-    if (dailyDate) await this.redis.client.set(this.dailyActiveKey(userId, dailyDate), id, 'EX', SESSION_TTL_SECONDS);
     return this.publicState(session);
   }
 
@@ -222,6 +230,7 @@ export class EnglishGameService {
       id: session.id,
       kind: session.kind,
       level: session.level,
+      dailyDate: session.dailyDate,
       status: session.status,
       score: session.score,
       streak: session.streak,
