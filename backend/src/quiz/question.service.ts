@@ -22,7 +22,7 @@ const shuffle = <T,>(a: T[]) => {
 };
 const sample = <T,>(items: readonly T[], count: number) => {
   if (items.length === 0) throw new Error('Không có dữ liệu câu hỏi cho cấp độ này.');
-  const shuffled = shuffle(items);
+  const shuffled = shuffle([...items]);
   return Array.from({ length: count }, (_, index) => shuffled[index % shuffled.length]);
 };
 const clean = (s?: string) => s?.replace(/[.-]/g, '');
