@@ -35,11 +35,11 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
           <span>QUIZ<span className="brand-light">/BATTLE</span></span>
         </Link>
         <div className="auth-art-copy">
-          <p className="eyebrow">THINK QUICK. PLAY TOGETHER.</p>
-          <h1>Biết nhiều.<br /><span>Vui hơn.</span></h1>
-          <p>Mỗi câu hỏi là một cơ hội để lật ngược thế cờ.</p>
+          <p className="eyebrow">THINK QUICK. LEARN ENGLISH.</p>
+          <h1>Học nhanh.<br /><span>Nhớ lâu.</span></h1>
+          <p>Luyện từ vựng, ngữ pháp và phản xạ qua những thử thách thi đấu ngắn.</p>
         </div>
-        <div className="auth-art-footer"><span>ENGLISH / 日本語</span><span>EST. 2026</span></div>
+        <div className="auth-art-footer"><span>CEFR A1 — C2</span><span>EST. 2026</span></div>
         <span className="auth-orbit orbit-one" aria-hidden="true">?</span>
         <span className="auth-orbit orbit-two" aria-hidden="true">!</span>
       </aside>
