@@ -66,7 +66,6 @@ export default function EnglishGame() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [feedback, setFeedback] = useState('');
   const [itemHint, setItemHint] = useState('');
-  const startKey = useRef('');
   const expiryRequested = useRef(false);
 
   const storageKey = (gameKind: GameKind, gameLevel: CefrLevel, dailyDate?: string) =>
@@ -82,21 +81,29 @@ export default function EnglishGame() {
   }, []);
 
   useEffect(() => {
-    const key = `${kind}:${level}`;
-    if (startKey.current === key) return;
-    startKey.current = key;
-    setGame(null);
-    setError('');
-    const keyForLevel = storageKey(kind, level);
-    const savedId = localStorage.getItem(keyForLevel);
-    const startNew = () => api.post<GameView>('/english-games/start', { kind, level }).then((response) => applyGame(response.data));
-    const resume = savedId
-      ? api.get<GameView>(`/english-games/${savedId}`).then((response) => applyGame(response.data)).catch(startNew)
-      : startNew();
-    void resume.catch((reason: { response?: { data?: { message?: string } } }) => {
-      setError(reason.response?.data?.message ?? 'Không thể bắt đầu lượt chơi.');
+    const prefix = `quiz-battle:english-game:${kind}:`;
+    const savedId = Object.keys(localStorage)
+      .filter((key) => key.startsWith(prefix))
+      .map((key) => localStorage.getItem(key))
+      .find((value): value is string => Boolean(value));
+    if (!savedId) return;
+    api.get<GameView>(`/english-games/${savedId}`).then((response) => applyGame(response.data)).catch(() => {
+      Object.keys(localStorage).filter((key) => key.startsWith(prefix)).forEach((key) => localStorage.removeItem(key));
     });
-  }, [applyGame, kind, level]);
+  }, [applyGame, kind]);
+
+  const startGame = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      const response = await api.post<GameView>('/english-games/start', { kind, level: kind === 'daily' ? 'B1' : level });
+      applyGame(response.data);
+    } catch (reason: any) {
+      setError(reason.response?.data?.message ?? 'Không thể bắt đầu lượt chơi.');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   useEffect(() => {
     if (!game || game.status !== 'playing') return;
@@ -182,7 +189,15 @@ export default function EnglishGame() {
   if (error && !game) {
     return <section className="english-game-page"><p className="eyebrow">THỬ THÁCH TIẾNG ANH</p><h1>Chưa thể bắt đầu.</h1><p className="page-intro">{error}</p><a className="button button-primary" href="/">Về sảnh chơi</a></section>;
   }
-  if (!game) return <p className="loading-state">Đang chuẩn bị câu hỏi<span>...</span></p>;
+  if (!game) return (
+    <section className="english-game-page">
+      <header className="english-game-heading">
+        <div><p className="eyebrow"><span className="live-dot" /> {kind === 'daily' ? 'THỬ THÁCH HÔM NAY' : 'TIME ATTACK'}</p><h1>{kind === 'daily' ? 'Mỗi ngày, tiến bộ.' : '60 giây. Bứt tốc.'}</h1><p className="page-intro">{kind === 'daily' ? '10 câu giống nhau cho mọi người. Hoàn thành một lần để giữ chuỗi ngày.' : 'Chọn cấp độ rồi trả lời liên tiếp, giữ streak và tích điểm combo.'}</p></div>
+        <label className="game-level-picker">CẤP ĐỘ<select value={kind === 'daily' ? 'B1' : level} disabled={kind === 'daily'} onChange={(event) => setLevel(event.target.value as CefrLevel)}>{LEVELS.map((item) => <option key={item.value} value={item.value}>{item.value} · {item.label}</option>)}</select></label>
+      </header>
+      <div className="game-finished game-setup"><p className="eyebrow">{kind === 'daily' ? 'THỬ THÁCH CHUNG TOÀN CẦU' : 'SẴN SÀNG?'}</p><h2>{kind === 'daily' ? 'Daily Challenge · B1' : `Time Attack · ${level}`}</h2><p className="page-intro">{kind === 'daily' ? 'Cấp độ B1 và bộ 10 câu giống nhau cho mọi người hôm nay.' : 'Bạn có 60 giây và một lần dùng cho mỗi vật phẩm.'}</p>{error && <p className="form-error" role="alert">{error}</p>}<button className="button button-primary" type="button" disabled={busy} onClick={() => void startGame()}>{busy ? 'Đang bắt đầu…' : 'Bắt đầu chơi'} <span aria-hidden="true">→</span></button></div>
+    </section>
+  );
 
   const choiceMode = Boolean(game.question.options);
   const canUseFifty = choiceMode && game.question.options?.length === 4;
@@ -196,7 +211,7 @@ export default function EnglishGame() {
           <h1>{kind === 'daily' ? 'Mỗi ngày, tiến bộ.' : '60 giây. Bứt tốc.'}</h1>
           <p className="page-intro">{kind === 'daily' ? '10 câu giống nhau cho mọi người. Hoàn thành một lần để giữ chuỗi ngày.' : 'Trả lời liên tiếp, giữ streak và tích điểm combo.'}</p>
         </div>
-        <label className="game-level-picker">CẤP ĐỘ<select value={level} disabled={game.questionIndex > 0 || game.answerCount > 0} onChange={(event) => setLevel(event.target.value as CefrLevel)}>{LEVELS.map((item) => <option key={item.value} value={item.value}>{item.value} · {item.label}</option>)}</select></label>
+        <label className="game-level-picker">CẤP ĐỘ<select value={kind === 'daily' ? 'B1' : game?.level ?? level} disabled={kind === 'daily' || Boolean(game)} onChange={(event) => setLevel(event.target.value as CefrLevel)}>{LEVELS.map((item) => <option key={item.value} value={item.value}>{item.value} · {item.label}</option>)}</select></label>
       </header>
 
       <div className="game-metrics" aria-live="polite">
@@ -208,14 +223,14 @@ export default function EnglishGame() {
       </div>
       <div className="game-progress"><span style={{ width: `${progress}%` }} /></div>
 
-      {game.status === 'finished' ? (
+      {game?.status === 'finished' ? (
         <div className="game-finished">
           <p className="eyebrow">LƯỢT CHƠI ĐÃ LƯU</p>
           <h2>{kind === 'daily' ? 'Hoàn thành thử thách.' : 'Hết giờ.'}</h2>
           <p className="page-intro">Bạn đạt <strong>{game.score} điểm</strong>, đúng {game.correctAnswers} câu và có streak cao nhất {game.bestStreak}.{game.dailyStreak ? ` Chuỗi Daily Challenge: ${game.dailyStreak} ngày.` : ''}</p>
           <a className="button button-primary" href="/leaderboard">Xem bảng xếp hạng <span aria-hidden="true">→</span></a>
         </div>
-      ) : (
+      ) : game?.status === 'playing' ? (
         <div className="english-play-layout">
           <form className="english-question-panel" onSubmit={submit}>
             <div className="english-question-meta"><span>{game.question.skill}</span><span>{kind === 'daily' ? `Câu ${game.questionIndex + 1} / 10` : 'Câu tiếp theo'}</span></div>
@@ -247,7 +262,7 @@ export default function EnglishGame() {
             {game.tabSwitches > 0 && <p className="tab-warning">Đã ghi nhận chuyển tab: {game.tabSwitches}</p>}
           </aside>
         </div>
-      )}
+      ) : null}
     </section>
   );
 }

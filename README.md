@@ -1,12 +1,13 @@
 # Quiz Battle
 
-A real-time multiplayer quiz game for learning **English** (vocabulary, IELTS-style questions) and **Japanese** (JLPT kanji). Players create a room, share a 5-character code with friends, and race to answer each question within 15 seconds. Correct and fast answers earn more points. A leaderboard is shown at the end of every match and results are saved to the database.
+A Vietnamese-language competitive English-learning game with CEFR levels from A1 to C2. Play a 60-second Time Attack, complete one shared 10-question Daily Challenge, practise in multiplayer rooms, and climb global Redis leaderboards.
 
 ---
 
 ## Table of Contents
 
 - [Features](#features)
+- [Game Modes](#game-modes)
 - [Screenshots](#screenshots)
 - [Tech Stack](#tech-stack)
 - [Architecture](#architecture)
@@ -30,13 +31,17 @@ A real-time multiplayer quiz game for learning **English** (vocabulary, IELTS-st
 
 - **Authentication**: sign up and log in with JWT; passwords are hashed with bcrypt
 - **Rooms**: create a room, join with a 5-character code, the host starts the game
-- **English mode**: vocabulary and IELTS-style fill-in questions at three levels (A1-A2, B1-B2, C1-C2)
-- **Japanese mode**: kanji meaning and reading questions from JLPT N5 to N1 (data from [kanjiapi.dev](https://kanjiapi.dev))
+- **CEFR learning path**: English vocabulary and grammar from A1 to C2; Vietnamese UI with English learning content
+- **Time Attack**: answer as many questions as possible in 60 seconds; streak combos multiply points
+- **Daily Challenge**: the same seeded 10-question B1 set for everyone each UTC day; one scored completion per player per day and a consecutive-day streak
+- **Practice rooms**: retain the existing room-code multiplayer quiz and match history
+- **Question types**: meaning choice, scrambled letters, fill in the blank, listen and choose with speech synthesis, and Wordle
+- **Power-ups**: 50/50, +10 seconds and first-letter hint; each power-up is usable once per run
 - **Real-time play**: live player list, a check mark when someone has answered, countdown timer
 - **Scoring**: 100 points per correct answer plus up to 50 speed bonus points
-- **Leaderboard**: top 10 players per language
+- **Leaderboard**: global Redis sorted sets for today, this week and all time
 - **History**: list of your matches and details of each match
-- **Anti-cheat**: the server holds the answers and scores them; the correct answer is sent only when the question closes, either at timeout or after all connected players have answered
+- **Anti-cheat**: answers, scoring and deadlines are verified server-side; changing tabs is recorded
 - **Dockerized**: the whole stack starts with one command
 
 ## Screenshots
@@ -60,7 +65,7 @@ A real-time multiplayer quiz game for learning **English** (vocabulary, IELTS-st
 |---|---|
 | ![Leaderboard](docs/screenshots/07-leaderboard.png) | ![History](docs/screenshots/08-history.png) |
 
-| Japanese mode | Mobile (via tunnel) |
+| Grammar mode | Mobile (via tunnel) |
 |---|---|
 | ![Japanese](docs/screenshots/09-japanese.png) | ![Mobile](docs/screenshots/11-mobile.png) |
 
@@ -75,7 +80,8 @@ A real-time multiplayer quiz game for learning **English** (vocabulary, IELTS-st
 | Frontend | React, TypeScript, Vite, Redux Toolkit, React Router, Axios, Socket.IO client |
 | Backend | NestJS 12, Socket.IO, Passport JWT, bcrypt |
 | Database | PostgreSQL 16, Prisma ORM |
-| Deployment | Docker Compose (db, backend, frontend served by Nginx), Cloudflare Tunnel |
+| Cache / leaderboard / active solo sessions | Redis 7 sorted sets and expiring keys |
+| Deployment | Docker Compose (db, Redis, backend, frontend served by Nginx), Cloudflare Tunnel |
 
 ## Architecture
 
@@ -94,28 +100,51 @@ Browser / phone
  |    /socket.io/  -> backend:3000   (WebSocket)                         |
  |                         |                                             |
  |                         v                                             |
- |  backend (NestJS) --- Prisma ---> db (PostgreSQL, volume: dbdata)     |
+|  backend (NestJS) --- Prisma ---> db (PostgreSQL, volume: dbdata)     |
+|         |                                                            |
+|         +---- redis (sorted sets / persistent solo sessions) --------|
  +-----------------------------------------------------------------------+
 ```
 
 - **Nginx** serves the React build and acts as a reverse proxy, so the browser talks to a single address.
 - **REST** (`/api`) handles sign up, login, leaderboard and history.
 - **Socket.IO** (`/socket.io`) handles everything real-time: rooms, questions, answers, scores.
-- **Active rooms live in server memory** for speed and simplicity; in-progress room state is not persisted. User accounts, Kanji cards and completed match results are stored in PostgreSQL.
+- Multiplayer room state lives in backend memory; solo sessions, daily completion/streak records, leaderboard scores and player names live in Redis. User accounts and multiplayer match history live in PostgreSQL.
 - Only the `frontend` container publishes a port; the backend and database are reachable only inside the Docker network.
 
 ## Game Rules and Scoring
 
 | Rule | Value |
 |---|---|
-| Time per question | 15 seconds |
-| Pause between questions | 3 seconds (answer reveal) |
-| Questions per match | 3 to 20 (host chooses) |
+| Time Attack | 60 seconds for as many answers as possible |
+| Daily Challenge | 10 deterministic B1 questions per UTC day |
+| Multiplayer practice | 15 seconds per question; 3-second answer reveal |
+| Questions per multiplayer match | 3 to 20 (host chooses) |
 | Correct answer | 100 points |
 | Speed bonus | up to 50 points, proportional to remaining time |
 | Early finish | if every connected player has answered, the question ends immediately |
 
-All timing and scoring are calculated on the server. The client only draws the countdown bar.
+All timing and scoring are calculated on the server. The client displays the server deadline and countdown.
+
+## Game Modes
+
+| Mode | Skill | Status |
+|---|---|---|
+| Meaning choice | Vocabulary | Ready |
+| Letter order | Spelling | Ready |
+| Fill gap | Grammar | Ready |
+| Listen choice | Listening with browser speech synthesis | Ready |
+| Wordle | Vocabulary and spelling | Ready |
+| Picture match, Hangman, error correction, sentence order, speaking, reading, word chain, crossword, Boggle | Mixed | Scaffolded with TODO markers |
+
+Solo games share the module contract in `backend/src/quiz/english-game-modes.ts`: each module declares an ID and skill, generates a question from a CEFR level and supplied random source, then checks an answer. Time Attack selects from ready modules. Daily Challenge chooses reproducible modules/questions from the UTC date seed.
+
+### Add a game mode or question
+
+1. Add vocabulary or grammar entries with a `level` (`A1` through `C2`) to `backend/src/quiz/english-learning-bank.ts`. Include at least four entries per level for useful multiple-choice distractors.
+2. Add an `EnglishModeId` and an `EnglishGameModule` in `english-game-modes.ts`. Implement `generateQuestion(level, random)` using the supplied random function so Daily Challenge remains reproducible, and implement `checkAnswer` on the server.
+3. Add the mode ID to `PLAYABLE_MODES` only after it is ready. Add it to `DAILY_MODES` only when it is suitable for a shared daily challenge. Scaffolded modules have `todo: true` and are deliberately excluded.
+4. Add a focused test in `english-game-modes.spec.ts`, then run `npm run build`, `npm run lint` and `npm test -- --runInBand src/quiz/english-game-modes.spec.ts` from `backend/`.
 
 ## Data Model
 
@@ -128,7 +157,7 @@ All timing and scoring are calculated on the server. The client only draws the c
 
 Relation: `User` - `MatchPlayer` - `Match` (many-to-many through `MatchPlayer`).
 
-English questions come from `backend/src/quiz/english-question-bank.ts`. Japanese questions are generated from the `KanjiCard` table.
+English practice questions come from `backend/src/quiz/english-learning-bank.ts`; question-game contracts live in `backend/src/quiz/english-game-modes.ts`. The legacy `KanjiCard` model and multiplayer match APIs remain for compatibility.
 
 ## API Reference
 
@@ -140,8 +169,14 @@ All REST routes use the `/api` prefix. Routes marked "auth" need the header `Aut
 | POST | `/api/auth/login` | no | Body `{email, password}`. Returns `{token, user}` |
 | GET | `/api/auth/me` | yes | Current user |
 | GET | `/api/matches/mine` | yes | Your last 20 matches |
-| GET | `/api/matches/leaderboard?lang=EN\|JA` | yes | Top 10 by total score |
+| GET | `/api/matches/leaderboard?lang=EN\|JA` | yes | Legacy multiplayer match leaderboard |
 | GET | `/api/matches/:id` | yes | Match details with ranking |
+| POST | `/api/english-games/start` | yes | Start or resume `{kind: time-attack\|daily, level: A1..C2}` |
+| GET | `/api/english-games/:id` | yes | Resume a Redis-backed solo session |
+| POST | `/api/english-games/:id/answer` | yes | Submit an answer; the correct answer is never returned |
+| POST | `/api/english-games/:id/items` | yes | Use `fifty-fifty`, `extra-time` or `hint` once per run |
+| POST | `/api/english-games/:id/tab-hidden` | yes | Record a tab visibility change during a run |
+| GET | `/api/english-games/leaderboard?scope=today\|week\|all` | yes | Global top 10 from Redis sorted sets |
 
 ## Socket.IO Events
 
@@ -182,7 +217,7 @@ Requirement: [Docker Desktop](https://www.docker.com/products/docker-desktop/).
    docker compose ps
    ```
 
-   All three services (`db`, `backend`, `frontend`) should be `Up`. The first build takes a few minutes.
+   All four services (`db`, `redis`, `backend`, `frontend`) should be `Up`. The first build takes a few minutes.
 
 3. Seed the kanji data (run once):
 
@@ -200,19 +235,20 @@ Useful commands:
 | `docker compose up -d --build` | Rebuild after code changes |
 | `docker compose ps` | Show running services |
 | `docker compose logs -f backend` | Follow backend logs |
+| `docker compose logs -f redis` | Follow Redis logs |
 | `docker compose restart backend` | Restart only the backend |
 | `docker compose down` | Stop and remove containers (data is kept) |
 
-> Never run `docker compose down -v` unless you want to delete the database (accounts, history and kanji data).
+> `docker compose down -v` deletes PostgreSQL and Redis data, including accounts, match history, leaderboard scores and daily streaks.
 
 If port 80 is already in use, change `"80:80"` to `"8080:80"` in `docker-compose.yml` and open `http://localhost:8080`.
 
 ### Development Setup
 
-Requirements: Node.js 20+ and Docker (for the database).
+Requirements: Node.js 20+ and Docker (for PostgreSQL and Redis).
 
 ```bash
-# 1. PostgreSQL for development (port 5433)
+# 1. PostgreSQL (port 5433) and Redis (port 6379) for development
 docker compose -f docker-compose.dev.yml up -d
 
 # 2. Backend (http://localhost:3000)
@@ -229,7 +265,7 @@ npm install
 npm run dev
 ```
 
-The Vite dev server proxies `/api` and `/socket.io` to the backend on port 3000. The development database and the Docker stack database are **separate**, so accounts do not carry over.
+The Vite dev server proxies `/api` and `/socket.io` to the backend on port 3000. The development database and the Docker stack database are **separate**, so accounts do not carry over. Redis-backed solo sessions and leaderboard data are global to whichever Redis service the backend connects to.
 
 To test with two players on one computer, use a normal window and an incognito window (they keep separate `localStorage`, so they log in as different users).
 
@@ -275,10 +311,14 @@ quiz-battle/
 │   ├── src/
 │   │   ├── auth/                  Register, login, JWT strategy
 │   │   ├── prisma/                Prisma service and module
+│   │   ├── redis/                  Redis connection and global state
 │   │   ├── quiz/
 │   │   │   ├── game.service.ts        Rooms, timer, scoring
 │   │   │   ├── question.service.ts    Question generation
-│   │   │   ├── english-question-bank.ts
+│   │   │   ├── english-learning-bank.ts
+│   │   │   ├── english-game-modes.ts   Shared game-module registry
+│   │   │   ├── english-game.service.ts Solo sessions, scoring, items, leaderboards
+│   │   │   ├── english-game.controller.ts Solo-game REST API
 │   │   │   ├── quiz.gateway.ts        Socket.IO gateway
 │   │   │   ├── match.controller.ts    History and leaderboard
 │   │   │   └── quiz.module.ts
@@ -315,7 +355,9 @@ quiz-battle/
 | `secretOrKey must be provided` | `JWT_SECRET` is missing, or `import 'dotenv/config'` is not at the top of `main.ts` |
 | Web shows 502 | Backend is not up yet or crashed. Check `docker compose logs backend` |
 | Table does not exist | Apply the committed migrations with `npx prisma migrate deploy` from `backend/` (or `docker compose exec backend npx prisma migrate deploy` for Docker) |
-| Japanese mode shows an error or too few questions | Kanji data is not seeded (or the chosen JLPT level has too few kanji). Run the seed command |
+| Redis connection refused | Start Docker Compose, including the Redis service, or run the dev Redis container on port 6379 |
+| Daily Challenge says it is already complete | Each account can score once per UTC day; an unfinished session resumes in the same browser |
+| English level has too few questions | Add vocabulary and grammar entries for that CEFR level in `english-learning-bank.ts` |
 | Garbled characters (`?` or a replacement symbol) | A file was saved in the wrong encoding. Re-save it as UTF-8 |
 | Blank page when opening `index.html` directly | Expected. Use `http://localhost` (Docker) or `http://localhost:5173` (dev) |
 | Page not updated after editing code | Docker serves a built copy. Run `docker compose up -d --build` |

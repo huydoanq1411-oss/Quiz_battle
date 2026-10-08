@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { getEnglishGameModule, type EnglishGameQuestion, type EnglishModeId } from './english-game-modes';
 import type { CefrLevel } from './english-learning-bank';
@@ -66,8 +66,9 @@ export class EnglishGameService {
   constructor(private readonly redis: RedisService, private readonly prisma: PrismaService) {}
 
   async start(userId: number, kind: SessionKind, level: CefrLevel) {
-    if (!LEVELS.includes(level)) throw new Error('Cấp độ CEFR không hợp lệ.');
+    if (!LEVELS.includes(level)) throw new BadRequestException('Cấp độ CEFR không hợp lệ.');
     const dailyDate = kind === 'daily' ? utcDate() : undefined;
+    const effectiveLevel: CefrLevel = kind === 'daily' ? 'B1' : level;
     if (dailyDate) {
       const completedKey = this.dailyCompletedKey(userId, dailyDate);
       if (await this.redis.client.exists(completedKey)) throw new Error('Bạn đã hoàn thành Daily Challenge hôm nay.');
@@ -85,7 +86,7 @@ export class EnglishGameService {
       id,
       userId,
       kind,
-      level,
+      level: effectiveLevel,
       seed: kind === 'daily' ? `${dailyDate}:${userId}` : `${id}:${now}`,
       dailyDate,
       questionIndex: 0,
@@ -101,7 +102,7 @@ export class EnglishGameService {
       status: 'playing',
       startedAt: now,
       endsAt: now + (kind === 'daily' ? 15 * DAILY_QUESTION_COUNT * 1000 : TIME_ATTACK_MS),
-      question: this.makeQuestion(kind, level, sessionSeed(kind, dailyDate, id, 0), 0),
+      question: this.makeQuestion(kind, effectiveLevel, sessionSeed(kind, dailyDate, id, 0), 0),
     };
     if (dailyDate) {
       const reserved = await this.redis.client.set(this.dailyActiveKey(userId, dailyDate), id, 'EX', SESSION_TTL_SECONDS, 'NX');
@@ -109,7 +110,7 @@ export class EnglishGameService {
         const activeId = await this.redis.client.get(this.dailyActiveKey(userId, dailyDate));
         const activeSession = activeId ? await this.readSession(activeId) : null;
         if (activeSession?.status === 'playing') return this.publicState(activeSession);
-        throw new Error('Daily Challenge đang được mở ở một cửa sổ khác.');
+        throw new ConflictException('Daily Challenge đang được mở ở một cửa sổ khác.');
       }
     }
     await this.saveSession(session);
@@ -124,7 +125,7 @@ export class EnglishGameService {
 
   async answer(userId: number, id: string, answer: string) {
     const session = await this.requireSession(userId, id);
-    if (session.status !== 'playing') throw new Error('Lượt chơi này đã kết thúc.');
+    if (session.status !== 'playing') throw new ConflictException('Lượt chơi này đã kết thúc.');
     if (Date.now() >= session.endsAt) {
       await this.finish(session);
       return this.publicState(session);
@@ -171,13 +172,13 @@ export class EnglishGameService {
 
   async useItem(userId: number, id: string, item: ItemId) {
     const session = await this.requireSession(userId, id);
-    if (session.status !== 'playing' || Date.now() >= session.endsAt) throw new Error('Lượt chơi đã kết thúc.');
-    if (!(['fifty-fifty', 'extra-time', 'hint'] as string[]).includes(item)) throw new Error('Vật phẩm không hợp lệ.');
-    if (session.usedItems.includes(item)) throw new Error('Mỗi vật phẩm chỉ dùng được một lần trong lượt chơi.');
+    if (session.status !== 'playing' || Date.now() >= session.endsAt) throw new ConflictException('Lượt chơi đã kết thúc.');
+    if (!(['fifty-fifty', 'extra-time', 'hint'] as string[]).includes(item)) throw new BadRequestException('Vật phẩm không hợp lệ.');
+    if (session.usedItems.includes(item)) throw new ConflictException('Mỗi vật phẩm chỉ dùng được một lần trong lượt chơi.');
 
     let result: { hiddenOptions?: number[]; hint?: string; endsAt?: number } = {};
     if (item === 'fifty-fifty') {
-      if (!session.question.options || session.question.options.length < 4) throw new Error('50/50 chỉ dùng được ở câu hỏi trắc nghiệm.');
+      if (!session.question.options || session.question.options.length < 4) throw new BadRequestException('50/50 chỉ dùng được ở câu hỏi trắc nghiệm.');
       const correctIndex = session.question.options.indexOf(session.question.answer);
       const wrong = session.question.options.map((_, index) => index).filter((index) => index !== correctIndex);
       session.hiddenOptions = wrong.slice(0, 2);
@@ -286,7 +287,7 @@ export class EnglishGameService {
 
   private async requireSession(userId: number, id: string) {
     const session = await this.readSession(id);
-    if (!session || session.userId !== userId) throw new Error('Không tìm thấy lượt chơi.');
+    if (!session || session.userId !== userId) throw new NotFoundException('Không tìm thấy lượt chơi.');
     return session;
   }
 
