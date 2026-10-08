@@ -15,11 +15,11 @@ Quiz Battle là trò chơi thi đấu giúp học tiếng Anh với các cấp �
 - [Mô hình dữ liệu](#mô-hình-dữ-liệu)
 - [Tài liệu API](#tài-liệu-api)
 - [Sự kiện Socket.IO](#sự-kiện-socketio)
-- [Bắt đầu](#bắt-đầu)
-   - [Chạy bằng Docker](#chạy-bằng-docker)
-   - [Thiết lập môi trường phát triển](#thiết-lập-môi-trường-phát-triển)
+- [Ba cách chạy ứng dụng](#ba-cách-chạy-ứng-dụng)
+   - [Cách A: Docker](#cách-a-docker)
+   - [Cách B: Dev](#cách-b-dev)
+   - [Cách C: Link công khai](#cách-c-link-công-khai)
    - [Biến môi trường](#biến-môi-trường)
-- [Chia sẻ liên kết công khai](#chia-sẻ-liên-kết-công-khai)
 - [Cấu trúc dự án](#cấu-trúc-dự-án)
 - [Xử lý sự cố](#xử-lý-sự-cố)
 - [Giới hạn](#giới-hạn)
@@ -196,45 +196,34 @@ Gói bắt tay Socket.IO phải có JWT: `io({ auth: { token } })`. Token không
 | `game:reveal` | server → phòng | `{correctIndex, answers, players}` | Công bố đáp án và điểm mới khi hết giờ hoặc mọi người đang kết nối đã trả lời |
 | `game:end` | server → phòng | `{ranking}` | Bảng xếp hạng cuối trận; kết quả được lưu vào database |
 
-## Bắt đầu
+## Ba cách chạy ứng dụng
 
-### Chạy bằng Docker
+| Cách chạy | Địa chỉ | Dùng khi | Cần mở | Sửa code có tự cập nhật? | Database |
+|---|---|---|---|---|---|
+| **A. Docker** | `http://localhost` | Demo, nộp bài, chụp ảnh | Docker Desktop | Không; phải build lại | Container `db` và `redis` của Compose |
+| **B. Dev** | `http://localhost:5173` | Đang viết và sửa code | Docker (chỉ PostgreSQL/Redis) và 2 cửa sổ PowerShell chạy backend/frontend | Có; Vite và NestJS tự tải lại | Container dev; PostgreSQL host port `5433`, Redis `6379` |
+| **C. Link công khai** | `https://...trycloudflare.com` | Cho người khác chơi từ xa | Cách A và một cửa sổ `cloudflared` | Như cách A | Như cách A |
 
-Yêu cầu: [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+Quy tắc nhớ nhanh:
 
-1. Tạo file `.env` ở thư mục gốc (tham khảo `.env.example`):
+- Đang sửa code thì dùng **Cách B**.
+- Sửa xong và muốn chạy bản gần production thì dùng **Cách A**.
+- Muốn bạn bè hoặc thầy cô truy cập từ xa thì chạy **Cách A**, sau đó thêm **Cách C**.
 
-   ```env
-   DB_PASSWORD=your-alphanumeric-password
-   JWT_SECRET=a-long-random-secret
-   ```
+> Database của Cách A và Cách B là riêng biệt. Tài khoản đăng ký ở `localhost` không dùng được ở `localhost:5173` và ngược lại. Redis và dữ liệu bảng xếp hạng cũng tách riêng.
 
-   Chỉ dùng chữ cái và chữ số cho mật khẩu vì giá trị này được ghép vào URL kết nối database.
+### Cách A: Docker
 
-2. Build và khởi động toàn bộ hệ thống:
+Yêu cầu: mở [Docker Desktop](https://www.docker.com/products/docker-desktop/) và đợi Docker Engine sẵn sàng. Tạo file `.env` ở thư mục gốc nếu chưa có, tham khảo `.env.example`:
 
-   ```bash
-   docker compose up -d --build
-   docker compose ps
-   ```
+```env
+DB_PASSWORD=your-alphanumeric-password
+JWT_SECRET=a-long-random-secret
+```
 
-   Cả bốn service (`db`, `redis`, `backend`, `frontend`) phải ở trạng thái `Up`. Lần build đầu tiên có thể mất vài phút. Câu hỏi tiếng Anh đã đi kèm backend nên không cần seed dữ liệu. Compose này mở web ở cổng `80`; PostgreSQL và Redis chỉ hoạt động trong mạng Docker.
+Chỉ dùng chữ cái và chữ số cho mật khẩu vì giá trị này được ghép vào URL kết nối PostgreSQL.
 
-3. Mở **http://localhost**.
-
-Các lệnh thường dùng:
-
-| Lệnh | Tác dụng |
-|---|---|
-| `docker compose up -d` | Chạy stack ở chế độ nền |
-| `docker compose up -d --build` | Build lại sau khi sửa code |
-| `docker compose ps` | Xem trạng thái các service |
-| `docker compose logs -f backend` | Theo dõi log backend |
-| `docker compose logs -f redis` | Theo dõi log Redis |
-| `docker compose restart backend` | Chỉ khởi động lại backend |
-| `docker compose down` | Dừng và xóa container (giữ nguyên dữ liệu) |
-
-Sau khi sửa code cho bản Docker, build và khởi động lại các image:
+**Khởi động** — tại PowerShell ở thư mục gốc:
 
 ```powershell
 cd F:\quiz-battle
@@ -242,17 +231,24 @@ docker compose up -d --build
 docker compose ps
 ```
 
-Sau đó mở hoặc tải lại **http://localhost**. Nhấn **Ctrl+F5** để buộc trình duyệt tải lại file, bỏ qua cache. Khác với chế độ dev, Docker phục vụ frontend đã build nên thay đổi source chỉ xuất hiện sau khi build lại image.
+Phải thấy đủ **4 service** `db`, `redis`, `backend`, `frontend` ở trạng thái `Up`. Mở Chrome hoặc Edge tại **http://localhost**. Câu hỏi tiếng Anh đã đi kèm backend nên không cần chạy lệnh seed Kanji.
 
-> `docker compose down -v` sẽ xóa dữ liệu PostgreSQL và Redis, bao gồm tài khoản, lịch sử trận, điểm xếp hạng và chuỗi Daily Challenge.
+Nếu stack đã chạy sẵn, chỉ cần mở Docker Desktop và truy cập web. Sau khi sửa code, chạy lại `docker compose up -d --build` để build các image mới, rồi nhấn **Ctrl+F5** tại `http://localhost` để tải lại tài nguyên trình duyệt.
 
-Nếu cổng 80 đang được sử dụng, đổi `"80:80"` thành `"8080:80"` trong `docker-compose.yml` rồi mở `http://localhost:8080`.
+**Dừng ứng dụng**:
 
-### Thiết lập môi trường phát triển
+```powershell
+cd F:\quiz-battle
+docker compose down
+```
 
-Dùng chế độ này khi đang sửa code. Yêu cầu: Node.js 20+, npm và Docker Desktop. Mở **ba cửa sổ PowerShell riêng biệt** và giữ cả ba cửa sổ hoạt động.
+Không thêm `-v` trừ khi muốn xóa dữ liệu PostgreSQL và Redis (tài khoản, lịch sử trận, điểm xếp hạng và chuỗi Daily Challenge). Nếu cổng 80 bị chiếm, đổi `"80:80"` thành `"8080:80"` trong `docker-compose.yml`, khởi động lại stack rồi mở `http://localhost:8080`.
 
-**PowerShell 1: PostgreSQL và Redis** — chạy từ thư mục gốc dự án:
+### Cách B: Dev
+
+Dùng khi đang sửa code để frontend tự cập nhật và backend tự khởi động lại. Cần Node.js 20+, npm và Docker Desktop. Mở **3 cửa sổ PowerShell riêng**.
+
+**Cửa sổ 1: PostgreSQL và Redis dev** — chạy từ thư mục gốc:
 
 ```powershell
 cd F:\quiz-battle
@@ -260,9 +256,7 @@ docker compose -f docker-compose.dev.yml up -d
 docker compose -f docker-compose.dev.yml ps
 ```
 
-Database phát triển được mở ở cổng `5433`; Redis ở cổng `6379`.
-
-**PowerShell 2: Backend** — thiết lập một lần, sau đó chạy NestJS ở chế độ theo dõi file:
+**Cửa sổ 2: Backend** — cài dependency và tạo `.env` lần đầu; sau đó chỉ cần chạy `npm run start:dev`:
 
 ```powershell
 cd F:\quiz-battle\backend
@@ -272,9 +266,9 @@ npx prisma migrate dev       # chỉ chạy khi khởi tạo/cập nhật schema
 npm run start:dev
 ```
 
-Backend chạy tại `http://localhost:3000` và tự khởi động lại khi file backend thay đổi.
+Đợi thông báo `Nest application successfully started`. Backend chạy tại `http://localhost:3000`; khi sửa file trong `backend/src/`, NestJS sẽ tự biên dịch và khởi động lại. Các phòng multiplayer đang chơi sẽ mất khi backend khởi động lại, vì trạng thái phòng hiện vẫn nằm trong bộ nhớ.
 
-**PowerShell 3: Frontend** — cài dependency một lần, sau đó chạy Vite:
+**Cửa sổ 3: Frontend** — cài dependency lần đầu; sau đó chạy Vite:
 
 ```powershell
 cd F:\quiz-battle\frontend
@@ -282,15 +276,33 @@ npm install                  # chỉ chạy lần đầu hoặc khi dependency t
 npm run dev
 ```
 
-Mở **http://localhost:5173** (nhớ giữ `:5173` trong địa chỉ). Vite chuyển tiếp `/api` và `/socket.io` đến backend ở cổng `3000`; thay đổi frontend xuất hiện ngay, còn thay đổi backend sẽ kích hoạt NestJS khởi động lại. Volume PostgreSQL dùng cho phát triển tách biệt với database của Compose production nên tài khoản và lịch sử trận không được dùng chung. Dữ liệu Redis giữa hai Compose project cũng tách biệt.
+Mở **http://localhost:5173** (nhớ giữ `:5173`). Khi sửa file trong `frontend/src/`, Vite sẽ tự cập nhật trang. Vite chuyển tiếp `/api` và `/socket.io` đến backend tại cổng `3000`.
 
-Để dừng database và Redis phát triển, trước hết nhấn `Ctrl+C` ở hai cửa sổ đang chạy npm, sau đó chạy lệnh này từ thư mục gốc:
+Để thử hai người chơi trên cùng máy, dùng một cửa sổ trình duyệt bình thường và một cửa sổ ẩn danh; mỗi cửa sổ có `localStorage` riêng nên đăng nhập được bằng hai tài khoản.
+
+**Dừng môi trường dev**: nhấn `Ctrl+C` ở cửa sổ backend và frontend. Sau đó, tại thư mục gốc, dừng PostgreSQL và Redis:
 
 ```powershell
 docker compose -f docker-compose.dev.yml down
 ```
 
-Để thử với hai người chơi trên cùng máy, dùng một cửa sổ bình thường và một cửa sổ ẩn danh (mỗi cửa sổ có `localStorage` riêng nên có thể đăng nhập hai tài khoản khác nhau).
+### Cách C: Link công khai
+
+Chạy Cách A trước vì tunnel sẽ chuyển tiếp tới cổng `80`. Mở thêm PowerShell và chạy lệnh tương ứng với nơi đã cài `cloudflared`:
+
+```powershell
+cloudflared tunnel --protocol http2 --url http://localhost:80
+```
+
+Hoặc nếu cài tại `F:\cloudflared`:
+
+```powershell
+F:\cloudflared\cloudflared.exe tunnel --protocol http2 --url http://localhost:80
+```
+
+Trong cửa sổ lệnh sẽ hiện URL dạng `https://ten-ngau-nhien.trycloudflare.com`; gửi URL đó cho người chơi. Giữ cửa sổ tunnel mở, máy tính cần bật và không chuyển sang chế độ ngủ. URL thay đổi mỗi lần chạy tunnel và có thể cần 10–30 giây mới truy cập được. Nếu Docker đang dùng cổng `8080`, thay `localhost:80` bằng `localhost:8080` trong lệnh.
+
+**Chạy nhanh bằng `demo.bat`**: mở Docker Desktop, đợi Docker Engine sẵn sàng, sau đó nhấp đúp `demo.bat` ở thư mục dự án. File này chạy `docker compose up -d` rồi mở tunnel bằng `F:\cloudflared\cloudflared.exe`; giữ cửa sổ đang mở để link tiếp tục hoạt động.
 
 ### Biến môi trường
 
@@ -303,25 +315,6 @@ docker compose -f docker-compose.dev.yml down
 | `backend/.env` | `REDIS_URL` | URL kết nối Redis; mặc định local là `redis://localhost:6379` |
 
 Các file `.env` được Git bỏ qua. Hãy sao chép file `.env.example` rồi điền giá trị riêng. **Không commit secret thật lên repository.**
-
-## Chia sẻ liên kết công khai
-
-[Cloudflare quick tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/do-more-with-tunnels/trycloudflare/) tạo URL công khai để bạn bè truy cập mà không cần mở cổng router hoặc tạo tài khoản Cloudflare.
-
-```bash
-cloudflared tunnel --url http://localhost:80
-```
-
-Nếu tunnel không kết nối được (một số mạng trường học hoặc công ty chặn UDP), hãy chuyển sang HTTP/2:
-
-```bash
-cloudflared tunnel --protocol http2 --url http://localhost:80
-```
-
-- Giữ cửa sổ tunnel mở; đóng cửa sổ sẽ ngắt liên kết.
-- URL sẽ thay đổi mỗi lần khởi động lại tunnel.
-- Docker stack phải đang chạy; máy tính cần bật và có kết nối mạng.
-- Trước buổi demo, hãy thử bằng điện thoại dùng dữ liệu di động và kiểm tra danh sách người chơi/dấu xác nhận cập nhật tức thời để xác nhận WebSocket hoạt động qua tunnel.
 
 ## Cấu trúc dự án
 
