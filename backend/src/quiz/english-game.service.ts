@@ -23,6 +23,7 @@ interface EnglishSession {
   correctAnswers: number;
   answerCount: number;
   guesses: string[];
+  guessFeedback: ('correct' | 'present' | 'absent')[][];
   tabSwitches: number;
   usedItems: ItemId[];
   hiddenOptions: number[];
@@ -96,6 +97,7 @@ export class EnglishGameService {
       correctAnswers: 0,
       answerCount: 0,
       guesses: [],
+      guessFeedback: [],
       tabSwitches: 0,
       usedItems: [],
       hiddenOptions: [],
@@ -143,7 +145,9 @@ export class EnglishGameService {
     const correct = gameModule.checkAnswer(session.question, answer);
     session.answerCount++;
     if (session.question.mode === 'wordle') {
-      session.guesses.push(answer.trim().slice(0, 40));
+      const guess = answer.trim().slice(0, 40).toLocaleLowerCase('en-US');
+      session.guesses.push(guess);
+      session.guessFeedback.push(this.wordleFeedback(session.question.answer, guess));
       if (!correct && session.guesses.length < 6) {
         await this.saveSession(session);
         return { ...this.publicState(session), lastAnswerCorrect: false, questionComplete: false };
@@ -170,6 +174,7 @@ export class EnglishGameService {
     } else {
       session.questionIndex++;
       session.guesses = [];
+      session.guessFeedback = [];
       session.hiddenOptions = [];
       session.question = this.makeQuestion(session.kind, session.level, sessionSeed(session.kind, session.dailyDate, session.seed, session.questionIndex), session.questionIndex);
       await this.saveSession(session);
@@ -256,11 +261,32 @@ export class EnglishGameService {
       serverNow: Date.now(),
       question,
       guesses: session.guesses,
+      guessFeedback: session.guessFeedback,
       tabSwitches: session.tabSwitches,
       usedItems: session.usedItems,
       hiddenOptions: session.hiddenOptions,
       dailyStreak: session.dailyStreak,
     };
+  }
+
+  private wordleFeedback(answer: string, guess: string): ('correct' | 'present' | 'absent')[] {
+    const answerLetters = Array.from(answer.toLocaleLowerCase('en-US'));
+    const guessLetters = Array.from(guess);
+    const feedback: ('correct' | 'present' | 'absent')[] = Array.from({ length: guessLetters.length }, () => 'absent');
+    const remaining = new Map<string, number>();
+    for (let index = 0; index < answerLetters.length; index++) {
+      if (guessLetters[index] === answerLetters[index]) feedback[index] = 'correct';
+      else remaining.set(answerLetters[index], (remaining.get(answerLetters[index]) ?? 0) + 1);
+    }
+    for (let index = 0; index < guessLetters.length; index++) {
+      if (feedback[index] === 'correct') continue;
+      const count = remaining.get(guessLetters[index]) ?? 0;
+      if (count > 0) {
+        feedback[index] = 'present';
+        remaining.set(guessLetters[index], count - 1);
+      }
+    }
+    return feedback;
   }
 
   private async finish(session: EnglishSession) {
@@ -322,7 +348,10 @@ export class EnglishGameService {
 
   private async readSession(id: string) {
     const json = await this.redis.client.get(`english:session:${id}`);
-    return json ? JSON.parse(json) as EnglishSession : null;
+    if (!json) return null;
+    const session = JSON.parse(json) as EnglishSession;
+    session.guessFeedback ??= [];
+    return session;
   }
 
   private saveSession(session: EnglishSession) {

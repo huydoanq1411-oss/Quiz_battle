@@ -194,6 +194,9 @@ input:focus-visible { box-shadow: 0 0 0 2px var(--coral); }
 .wordle-guesses { display: grid; gap: 5px; justify-content: start; margin: -7px 0 18px; }
 .wordle-row { display: flex; gap: 5px; }
 .wordle-row span { display: grid; width: 30px; aspect-ratio: 1; place-items: center; border: 1px solid var(--line); background: white; font-family: var(--mono); font-size: 12px; font-weight: 600; }
+.wordle-row span.correct { border-color: #718d27; background: #91ae37; color: white; }
+.wordle-row span.present { border-color: #b8792c; background: #e4ad57; color: var(--ink); }
+.wordle-row span.absent { border-color: #aeb2a8; background: #d4d6cf; color: #5d6259; }
 .sound-button { min-height: 38px; margin: 14px 0; border-color: var(--line); background: #d9e7f1; font-size: 11px; }
 .item-hint, .game-feedback { margin: 15px 0 0; color: #52613b; font-size: 12px; }
 .game-feedback.is-correct { color: #54711b; font-weight: 700; }

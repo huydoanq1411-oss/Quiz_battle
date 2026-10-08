@@ -40,6 +40,7 @@ interface GameView {
   serverNow: number;
   question: QuestionView;
   guesses: string[];
+  guessFeedback?: ('correct' | 'present' | 'absent')[][];
   tabSwitches: number;
   usedItems: ItemId[];
   hiddenOptions: number[];
@@ -241,7 +242,7 @@ export default function EnglishGame() {
             <div className="english-question-meta"><span>{game.question.skill}</span><span>{kind === 'daily' ? `Câu ${game.questionIndex + 1} / 10` : 'Câu tiếp theo'}</span></div>
             <h2>{game.question.prompt}</h2>
             {game.question.mode === 'letter-order' && <div className="scramble-letters" aria-label="Các chữ cái cần sắp xếp">{game.question.letters?.map((letter, index) => <span key={`${letter}-${index}`}>{letter}</span>)}</div>}
-            {game.question.mode === 'wordle' && <div className="wordle-guesses" aria-label="Các lần đoán">{Array.from({ length: 6 }, (_, index) => <div key={index} className="wordle-row">{Array.from({ length: game.question.answerLength ?? 5 }, (_, letterIndex) => <span key={letterIndex}>{game.guesses[index]?.[letterIndex]?.toUpperCase() ?? ''}</span>)}</div>)}</div>}
+            {game.question.mode === 'wordle' && <div className="wordle-guesses" aria-label="Các lần đoán">{Array.from({ length: 6 }, (_, index) => <div key={index} className="wordle-row">{Array.from({ length: game.question.answerLength ?? 5 }, (_, letterIndex) => <span className={game.guessFeedback?.[index]?.[letterIndex] ?? ''} key={letterIndex}>{game.guesses[index]?.[letterIndex]?.toUpperCase() ?? ''}</span>)}</div>)}</div>}
             {game.question.options && <div className="english-options">{game.question.options.map((option, index) => {
               const hidden = game.hiddenOptions.includes(index);
               return <button key={`${option}-${index}`} className={`english-option${selected === option ? ' is-selected' : ''}`} type="button" disabled={hidden || busy} onClick={() => setSelected(option)}><b>{index + 1}</b><span>{option}</span></button>;

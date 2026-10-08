@@ -136,7 +136,7 @@ export const ENGLISH_GAME_MODULES: readonly EnglishGameModule[] = [
       return {
         id: questionId(this.id, random), mode: this.id, skill: this.skill,
         prompt: `Đoán từ tiếng Anh có nghĩa “${entry.meaning}”.`,
-        answerLength: Array.from(entry.word).length, hint: `${Array.from(entry.word).length} chữ cái`, answer: entry.word,
+        answerLength: Array.from(entry.word).length, hint: entry.word[0].toLocaleUpperCase('en-US'), answer: entry.word,
       };
     },
     checkAnswer: (question, answer) => normalize(question.answer) === normalize(answer),

@@ -154,7 +154,7 @@ Solo games share the module contract in `backend/src/quiz/english-game-modes.ts`
 | `User` | id, email (unique), name, password (hashed), createdAt | Accounts |
 | `Match` | id, code, language (`EN`/`JA`), totalQuestions, createdAt | One finished game |
 | `MatchPlayer` | id, matchId, userId, score, rank | A player's result in a match |
-| `KanjiCard` | id, kanji (unique), meanings, kunReadings, onReadings, jlpt, grade | Question bank for Japanese mode |
+| `KanjiCard` | id, kanji (unique), meanings, kunReadings, onReadings, jlpt, grade | Retained legacy question data |
 
 Relation: `User` - `MatchPlayer` - `Match` (many-to-many through `MatchPlayer`).
 
@@ -360,15 +360,13 @@ quiz-battle/
 ## Limitations
 
 - Active rooms are stored in server memory, so only a single backend instance is supported and running games are lost when the backend restarts. To scale horizontally, use the Socket.IO Redis adapter and keep room state in Redis.
-- The seed script imports kanji from the JLPT N5 through N1 lists. A level may still have too few usable questions because question generation requires valid meanings/readings and enough distinct answer options.
+- The old Kanji schema and seed remain in the repository for compatibility, but the current frontend is an English-learning experience.
 - Reconnecting in the middle of a match does not restore the current question.
 - Cloudflare quick tunnels have no uptime guarantee and are meant for demos, not production.
 
 ## Roadmap
 
 - Rejoin a running match after a connection drop
-- Import kanji of all grades and filter by JLPT level
-- Vietnamese translations for kanji meanings
 - Question categories and custom question sets managed by an admin
 - Sound effects, streaks, and a red countdown bar for the last 5 seconds
 - Persistent room state in Redis and deployment to a VPS
