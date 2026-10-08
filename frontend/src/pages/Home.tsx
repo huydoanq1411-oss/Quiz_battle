@@ -1,34 +1,29 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { getSocket } from '../socket';
 
-type EnglishLevel = 'A1-A2' | 'B1-B2' | 'C1-C2';
-type JapaneseLevel = 'N5' | 'N4' | 'N3' | 'N2' | 'N1';
-type QuizLevel = EnglishLevel | JapaneseLevel;
+type EnglishLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
 
 interface RoomResponse { code: string; error?: string }
 
 const ENGLISH_LEVELS: { value: EnglishLevel; label: string; detail: string }[] = [
-  { value: 'A1-A2', label: 'Cơ bản', detail: 'A1–A2' },
-  { value: 'B1-B2', label: 'Trung cấp', detail: 'B1–B2' },
-  { value: 'C1-C2', label: 'Nâng cao', detail: 'C1–C2' },
-];
-const JAPANESE_LEVELS: { value: JapaneseLevel; detail: string }[] = [
-  { value: 'N5', detail: 'Sơ cấp' }, { value: 'N4', detail: 'Cơ bản' },
-  { value: 'N3', detail: 'Trung cấp' }, { value: 'N2', detail: 'Khá' },
-  { value: 'N1', detail: 'Cao cấp' },
+  { value: 'A1', label: 'Mới bắt đầu', detail: 'A1' },
+  { value: 'A2', label: 'Cơ bản', detail: 'A2' },
+  { value: 'B1', label: 'Trung cấp', detail: 'B1' },
+  { value: 'B2', label: 'Trên trung cấp', detail: 'B2' },
+  { value: 'C1', label: 'Nâng cao', detail: 'C1' },
+  { value: 'C2', label: 'Thành thạo', detail: 'C2' },
 ];
 
 export default function Home() {
   const nav = useNavigate();
-  const [lang, setLang] = useState<'EN' | 'JA'>('EN');
   const [mode, setMode] = useState<'VOCAB' | 'IELTS'>('VOCAB');
-  const [level, setLevel] = useState<QuizLevel>('A1-A2');
+  const [level, setLevel] = useState<EnglishLevel>('A1');
   const [total, setTotal] = useState(5);
   const [code, setCode] = useState('');
 
   const create = () =>
-    getSocket().emit('room:create', { lang, total, mode: lang === 'JA' ? 'JLPT' : mode, level }, (res: RoomResponse) => nav(`/room/${res.code}`));
+    getSocket().emit('room:create', { lang: 'EN', total, mode, level }, (res: RoomResponse) => nav(`/room/${res.code}`));
 
   const join = () =>
     getSocket().emit('room:join', { code }, (res: RoomResponse) =>
@@ -45,6 +40,10 @@ export default function Home() {
         <div className="welcome-stamp" aria-hidden="true"><span>THINK</span><b>FAST!</b><i>★</i></div>
       </section>
 
+      <section className="challenge-grid" aria-label="Chế độ thi đấu cá nhân">
+        <Link to="/games/time-attack" className="challenge-link challenge-time"><span>60 GIÂY / STREAK</span><strong>Time Attack</strong><small>Đua tốc độ cùng 5 dạng câu hỏi.</small><b aria-hidden="true">↗</b></Link>
+        <Link to="/games/daily" className="challenge-link challenge-daily"><span>10 CÂU / MỖI NGÀY</span><strong>Daily Challenge</strong><small>Cùng bộ câu hỏi, thử thách toàn cầu.</small><b aria-hidden="true">↗</b></Link>
+      </section>
       <section className="home-grid" aria-label="Bắt đầu trận đấu">
         <article className="play-panel create-panel">
           <div className="panel-heading">
@@ -54,45 +53,22 @@ export default function Home() {
           <h2>Tạo phòng</h2>
           <p className="panel-copy">Chọn chủ đề, gọi hội bạn và bắt đầu cuộc đua kiến thức.</p>
           <div className="field-group">
-            <span className="field-label">CHỦ ĐỀ</span>
-            <div className="segmented-control" role="group" aria-label="Chọn ngôn ngữ câu hỏi">
-              <button className={lang === 'EN' ? 'segment is-active' : 'segment'} onClick={() => { setLang('EN'); setLevel('A1-A2'); }} aria-pressed={lang === 'EN'}>English <span>EN</span></button>
-              <button className={lang === 'JA' ? 'segment is-active' : 'segment'} onClick={() => { setLang('JA'); setLevel('N5'); }} aria-pressed={lang === 'JA'}>日本語 <span>JA</span></button>
+            <span className="field-label">DẠNG BÀI</span>
+            <div className="segmented-control" role="group" aria-label="Chọn dạng câu hỏi tiếng Anh">
+              <button className={mode === 'VOCAB' ? 'segment is-active' : 'segment'} onClick={() => setMode('VOCAB')} aria-pressed={mode === 'VOCAB'}>Từ vựng</button>
+              <button className={mode === 'IELTS' ? 'segment is-active' : 'segment'} onClick={() => setMode('IELTS')} aria-pressed={mode === 'IELTS'}>Ngữ pháp</button>
             </div>
           </div>
-          {lang === 'EN' ? (
-            <>
-              <div className="field-group">
-                <span className="field-label">DẠNG BÀI</span>
-                <div className="segmented-control" role="group" aria-label="Chọn dạng câu hỏi tiếng Anh">
-                  <button className={mode === 'VOCAB' ? 'segment is-active' : 'segment'} onClick={() => setMode('VOCAB')} aria-pressed={mode === 'VOCAB'}>Từ vựng</button>
-                  <button className={mode === 'IELTS' ? 'segment is-active' : 'segment'} onClick={() => setMode('IELTS')} aria-pressed={mode === 'IELTS'}>IELTS · câu</button>
-                </div>
-              </div>
-              <div className="field-group">
-                <span className="field-label">CẤP ĐỘ {mode === 'IELTS' ? '· IELTS BAND' : '· CEFR'}</span>
-                <div className="segmented-control level-control" role="group" aria-label="Chọn cấp độ tiếng Anh">
-                  {ENGLISH_LEVELS.map((item, index) => (
-                    <button className={level === item.value ? 'segment is-active' : 'segment'} onClick={() => setLevel(item.value)} aria-pressed={level === item.value} key={item.value}>
-                      {mode === 'IELTS' ? ['4–5', '6–7', '8–9'][index] : item.detail}
-                      <small>{item.label}</small>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="field-group">
-              <span className="field-label">CẤP ĐỘ JLPT</span>
-              <div className="segmented-control level-control jlpt-control" role="group" aria-label="Chọn cấp độ JLPT">
-                {JAPANESE_LEVELS.map((item) => (
-                  <button className={level === item.value ? 'segment is-active' : 'segment'} onClick={() => setLevel(item.value)} aria-pressed={level === item.value} key={item.value}>
-                    {item.value}<small>{item.detail}</small>
-                  </button>
-                ))}
-              </div>
+          <div className="field-group">
+            <span className="field-label">CẤP ĐỘ CEFR</span>
+            <div className="segmented-control level-control level-control-six" role="group" aria-label="Chọn cấp độ tiếng Anh">
+              {ENGLISH_LEVELS.map((item) => (
+                <button className={level === item.value ? 'segment is-active' : 'segment'} onClick={() => setLevel(item.value)} aria-pressed={level === item.value} key={item.value}>
+                  {item.detail}<small>{item.label}</small>
+                </button>
+              ))}
             </div>
-          )}
+          </div>
           <label className="field-group" htmlFor="question-count">
             <span className="field-label">SỐ CÂU HỎI</span>
             <span className="input-wrap number-wrap">

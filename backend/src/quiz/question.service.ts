@@ -1,7 +1,10 @@
 ﻿import { Injectable } from '@nestjs/common';
 import { KanjiCard } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { EnglishLevel, IELTS_SENTENCES, VOCABULARY, EnglishMode } from './english-question-bank';
+import { GRAMMAR, VOCABULARY, type CefrLevel } from './english-learning-bank';
+
+type EnglishLevel = CefrLevel;
+type EnglishMode = 'VOCAB' | 'IELTS';
 
 export type Lang = 'EN' | 'JA';
 export type JapaneseLevel = 'N5' | 'N4' | 'N3' | 'N2' | 'N1';
@@ -31,7 +34,7 @@ export class QuestionService {
 
   private english(n: number, mode: EnglishMode, level: EnglishLevel): Question[] {
     if (mode === 'IELTS') {
-      const items = IELTS_SENTENCES[level];
+      const items = GRAMMAR.filter((item) => item.level === level);
       if (n > items.length) throw new Error(`Chỉ có ${items.length} câu IELTS ở cấp độ ${level}`);
       return shuffle([...items]).slice(0, n).map((item) => {
         const options = shuffle([item.answer, ...item.distractors]);
@@ -43,7 +46,7 @@ export class QuestionService {
       });
     }
 
-    const items = VOCABULARY[level];
+    const items = VOCABULARY.filter((item) => item.level === level);
     if (n > items.length) throw new Error(`Chỉ có ${items.length} câu từ vựng ở cấp độ ${level}`);
     return shuffle([...items]).slice(0, n).map((item) => {
       const distractors = shuffle(items.filter((candidate) => candidate.word !== item.word));

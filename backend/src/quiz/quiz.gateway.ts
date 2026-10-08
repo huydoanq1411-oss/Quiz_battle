@@ -6,10 +6,10 @@ import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { GameService } from './game.service';
-import type { EnglishLevel } from './english-question-bank';
+import type { CefrLevel as EnglishLevel } from './english-learning-bank';
 import type { JapaneseLevel, QuizLevel } from './question.service';
 
-const ENGLISH_LEVELS: EnglishLevel[] = ['A1-A2', 'B1-B2', 'C1-C2'];
+const ENGLISH_LEVELS: EnglishLevel[] = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 const JAPANESE_LEVELS: JapaneseLevel[] = ['N5', 'N4', 'N3', 'N2', 'N1'];
 
 @WebSocketGateway({ cors: { origin: '*' } })

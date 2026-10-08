@@ -10,6 +10,7 @@ import Room from './pages/Room';
 import Leaderboard from './pages/Leaderboard';
 import History from './pages/History';
 import MatchDetail from './pages/MatchDetail';
+import EnglishGame from './pages/EnglishGame';
 
 function Private({ children }: { children: ReactElement }) {
   const token = useSelector((state: RootState) => state.auth.token);
@@ -49,6 +50,7 @@ export default function App() {
           <Route path="/register" element={<AuthPage mode="register" />} />
           <Route path="/" element={<Private><Home /></Private>} />
           <Route path="/room/:code" element={<Private><Room /></Private>} />
+          <Route path="/games/:kind" element={<Private><EnglishGame /></Private>} />
           <Route path="/leaderboard" element={<Private><Leaderboard /></Private>} />
           <Route path="/history" element={<Private><History /></Private>} />
           <Route path="/matches/:id" element={<Private><MatchDetail /></Private>} />
