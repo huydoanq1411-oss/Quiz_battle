@@ -437,3 +437,21 @@ git push -u origin main
 ```
 
 Chỉ dùng `git add .` khi đã xem `git status` và xác nhận mọi file chưa theo dõi/thay đổi đều thuộc về tính năng này.
+
+```
+Quy trình mỗi lần sửa code
+powershell
+# 1. Kiểm tra lỗi
+cd F:\quiz-battle\backend ; npm run build
+cd F:\quiz-battle\frontend ; npm run build
+
+# 2. Cập nhật web chạy thật
+cd F:\quiz-battle
+docker compose up -d --build
+
+# 3. Đưa lên GitHub
+git status
+git add .
+git commit -m "mo ta thay doi"
+git push
+```
