@@ -1,12 +1,15 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 
 interface PlayerInfo { userId: number; name: string; score: number; isHost: boolean }
-interface Q { index: number; total: number; text: string; options: string[]; durationMs: number }
+interface Q { index: number; total: number; text: string; options: string[]; durationMs: number; endsAt: number; serverNow: number }
 interface Rank { rank: number; userId: number; name: string; score: number }
 type QuizMode = 'VOCAB' | 'IELTS' | 'JLPT';
 type QuizLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2' | 'A1-A2' | 'B1-B2' | 'C1-C2' | 'N5' | 'N4' | 'N3' | 'N2' | 'N1';
 
-interface GameState {
+export interface GameState {
+  code: string | null;
+  id: string | null;
+  revision: number;
   phase: 'idle' | 'lobby' | 'playing' | 'reveal' | 'ended';
   lang: 'EN' | 'JA' | null;
   mode: QuizMode | null;
@@ -20,6 +23,8 @@ interface GameState {
 }
 
 const initial: GameState = {
+  code: null,
+  id: null, revision: 0,
   phase: 'idle', lang: null, mode: null, level: null, players: [], question: null,
   myChoice: null, answered: [], correctIndex: null, ranking: [],
 };
@@ -28,6 +33,10 @@ const slice = createSlice({
   name: 'game',
   initialState: initial,
   reducers: {
+    restored: (s, a: PayloadAction<GameState>) => {
+      if (s.id === a.payload.id && s.revision > a.payload.revision) return;
+      return { ...initial, ...a.payload };
+    },
     joined: (s, a: PayloadAction<{ lang: 'EN' | 'JA'; mode: QuizMode; level: QuizLevel }>) => {
       s.phase = 'lobby'; s.lang = a.payload.lang; s.mode = a.payload.mode; s.level = a.payload.level;
     },
@@ -45,5 +54,5 @@ const slice = createSlice({
     reset: () => initial,
   },
 });
-export const { joined, setPlayers, questionReceived, chose, answeredBy, revealed, ended, reset } = slice.actions;
+export const { restored, joined, setPlayers, questionReceived, chose, answeredBy, revealed, ended, reset } = slice.actions;
 export default slice.reducer;

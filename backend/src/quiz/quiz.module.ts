@@ -6,10 +6,11 @@ import { GameService } from './game.service';
 import { QuizGateway } from './quiz.gateway';
 import { EnglishGameController } from './english-game.controller';
 import { EnglishGameService } from './english-game.service';
+import { RoomRepository } from './room.repository';
 
 @Module({
   imports: [AuthModule],
   controllers: [MatchController, EnglishGameController],
-  providers: [QuestionService, GameService, QuizGateway, EnglishGameService],
+  providers: [QuestionService, GameService, QuizGateway, EnglishGameService, RoomRepository],
 })
 export class QuizModule {}

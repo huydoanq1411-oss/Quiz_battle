@@ -129,11 +129,11 @@ export class EnglishGameService {
     return this.publicState(session);
   }
 
-  async answer(userId: number, id: string, answer: string) {
-    return this.withSessionLock(id, async () => this.answerLocked(userId, id, answer));
+  async answer(userId: number, id: string, questionId: string, answer: string) {
+    return this.withSessionLock(id, async () => this.answerLocked(userId, id, questionId, answer));
   }
 
-  private async answerLocked(userId: number, id: string, answer: string) {
+  private async answerLocked(userId: number, id: string, questionId: string, answer: string) {
     const session = await this.requireSession(userId, id);
     if (session.status !== 'playing') throw new ConflictException('Lượt chơi này đã kết thúc.');
     if (Date.now() >= session.endsAt) {
@@ -141,6 +141,7 @@ export class EnglishGameService {
       return this.publicState(session);
     }
 
+    if (session.question.id !== questionId) throw new ConflictException('Câu hỏi đã thay đổi. Vui lòng tải lại lượt chơi.');
     const gameModule = getEnglishGameModule(session.question.mode);
     const correct = gameModule.checkAnswer(session.question, answer);
     session.answerCount++;
@@ -168,6 +169,7 @@ export class EnglishGameService {
       ? session.questionIndex + 1 >= DAILY_QUESTION_COUNT
       : false;
     if (completed) {
+      session.questionIndex++;
       await this.finish(session);
     } else if (session.kind === 'time-attack' && Date.now() >= session.endsAt) {
       await this.finish(session);
@@ -212,6 +214,10 @@ export class EnglishGameService {
   }
 
   async recordTabHidden(userId: number, id: string) {
+    return this.withSessionLock(id, () => this.recordTabHiddenLocked(userId, id));
+  }
+
+  private async recordTabHiddenLocked(userId: number, id: string) {
     const session = await this.requireSession(userId, id);
     if (session.status === 'playing') {
       session.tabSwitches++;
@@ -291,36 +297,51 @@ export class EnglishGameService {
 
   private async finish(session: EnglishSession) {
     if (session.status === 'finished') return;
-    session.status = 'finished';
-    const increment = session.score;
-    if (increment > 0) await this.addLeaderboardScore(session.userId, increment, session.dailyDate ?? utcDate());
-    if (session.kind === 'daily' && session.dailyDate) {
-      await this.redis.client.set(this.dailyCompletedKey(session.userId, session.dailyDate), '1', 'EX', 60 * 60 * 24 * 400);
-      const streakKey = `english:daily:streak:${session.userId}`;
-      const previousDate = await this.redis.client.hget(streakKey, 'date');
-      const previousStreak = Number(await this.redis.client.hget(streakKey, 'count')) || 0;
-      const previousDay = new Date(`${session.dailyDate}T00:00:00.000Z`);
-      previousDay.setUTCDate(previousDay.getUTCDate() - 1);
-      session.dailyStreak = previousDate === previousDay.toISOString().slice(0, 10) ? previousStreak + 1 : 1;
-      await this.redis.client.hset(streakKey, { date: session.dailyDate, count: session.dailyStreak });
-    }
-    await this.saveSession(session);
-  }
-
-  private async addLeaderboardScore(userId: number, score: number, dailyDate: string) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
-    if (user) await this.redis.client.hset('english:players', String(userId), user.name);
-    const scopes = [
-      { name: 'today', key: `english:leaderboard:today:${dailyDate}`, ttl: 60 * 60 * 24 * 10 },
-      { name: 'week', key: `english:leaderboard:week:${weekStart(new Date(`${dailyDate}T00:00:00.000Z`).getTime())}`, ttl: 60 * 60 * 24 * 70 },
-      { name: 'all', key: 'english:leaderboard:all:all' },
-    ];
-    const pipeline = this.redis.client.pipeline();
-    for (const scope of scopes) {
-      pipeline.zincrby(scope.key, score, String(userId));
-      if (scope.ttl) pipeline.expire(scope.key, scope.ttl);
-    }
-    await pipeline.exec();
+    const user = await this.prisma.user.findUnique({ where: { id: session.userId }, select: { name: true } });
+    const date = session.dailyDate ?? utcDate();
+    const previousDay = new Date(date + 'T00:00:00.000Z');
+    previousDay.setUTCDate(previousDay.getUTCDate() - 1);
+    // All completion effects commit together; retries return the saved result.
+    const result = await this.redis.client.eval(`
+      local current = redis.call('get', KEYS[1])
+      if not current then return redis.error_reply('Session expired') end
+      if cjson.decode(current).status == 'finished' then return current end
+      local session = cjson.decode(ARGV[1])
+      session.status = 'finished'
+      if session.kind == 'daily' then
+        local lastDate = redis.call('hget', KEYS[6], 'date')
+        local count = tonumber(redis.call('hget', KEYS[6], 'count')) or 0
+        if lastDate == ARGV[4] then count = count + 1
+        elseif lastDate ~= ARGV[3] then count = 1 end
+        session.dailyStreak = count
+        redis.call('hset', KEYS[6], 'date', ARGV[3], 'count', count)
+        redis.call('set', KEYS[5], '1', 'EX', 34560000)
+      end
+      if session.score > 0 then
+        redis.call('hset', KEYS[7], ARGV[2], ARGV[5])
+        for i = 2, 4 do redis.call('zincrby', KEYS[i], session.score, ARGV[2]) end
+        redis.call('expire', KEYS[2], 864000)
+        redis.call('expire', KEYS[3], 6048000)
+      end
+      local encoded = string.gsub(ARGV[1], '"status":"playing"', '"status":"finished"', 1)
+      if session.kind == 'daily' then
+        encoded = string.sub(encoded, 1, -2) .. ',"dailyStreak":' .. session.dailyStreak .. '}'
+      end
+      redis.call('set', KEYS[1], encoded, 'EX', ARGV[6])
+      return encoded
+    `, 7,
+      'english:session:' + session.id,
+      'english:leaderboard:today:' + date,
+      'english:leaderboard:week:' + weekStart(new Date(date + 'T00:00:00.000Z').getTime()),
+      'english:leaderboard:all:all',
+      this.dailyCompletedKey(session.userId, date),
+      'english:daily:streak:' + session.userId,
+      'english:players',
+      JSON.stringify(session), String(session.userId), date,
+      previousDay.toISOString().slice(0, 10), user?.name ?? String(session.userId),
+      String(SESSION_TTL_SECONDS),
+    );
+    Object.assign(session, JSON.parse(result as string) as EnglishSession);
   }
 
   private async requireSession(userId: number, id: string) {

@@ -21,16 +21,27 @@ export default function Home() {
   const [level, setLevel] = useState<EnglishLevel>('A1');
   const [total, setTotal] = useState(5);
   const [code, setCode] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
 
-  const create = () =>
-    getSocket().emit('room:create', { lang: 'EN', total, mode, level }, (res: RoomResponse) => nav(`/room/${res.code}`));
-
-  const join = () =>
-    getSocket().emit('room:join', { code }, (res: RoomResponse) =>
-      res.error ? alert(res.error) : nav(`/room/${res.code}`));
+  const requestRoom = (event: 'room:create' | 'room:join') => {
+    if (busy) return;
+    setBusy(true);
+    setError('');
+    getSocket().timeout(90_000).emit(event, event === 'room:create' ? { lang: 'EN', total, mode, level } : { code: code.trim().toUpperCase() }, (failure: Error | null, res?: RoomResponse) => {
+      setBusy(false);
+      if (failure || res?.error || !res?.code) {
+        setError(res?.error ?? 'Chưa kết nối được. Lần mở đầu có thể mất khoảng một phút, vui lòng thử lại.');
+      } else nav(`/room/${res.code}`);
+    });
+  };
+  const create = () => requestRoom('room:create');
+  const join = () => requestRoom('room:join');
 
   return (
     <div className="page page-home">
+      {busy && <p className="waiting-note" role="status">Đang kết nối… Lần mở đầu có thể mất khoảng một phút.</p>}
+      {error && <p className="form-error" role="alert">{error}</p>}
       <section className="welcome-row">
         <div>
           <p className="eyebrow"><span className="live-dot" /> PHÒNG CHƠI TRỰC TUYẾN</p>
@@ -76,7 +87,7 @@ export default function Home() {
               <span>03 — 20 câu</span>
             </span>
           </label>
-          <button className="button button-primary button-wide" onClick={create}>Tạo phòng mới <span aria-hidden="true">→</span></button>
+          <button className="button button-primary button-wide" onClick={create} disabled={busy}>Tạo phòng mới <span aria-hidden="true">→</span></button>
         </article>
 
         <article className="play-panel join-panel">
@@ -91,7 +102,7 @@ export default function Home() {
               <span className="field-label">MÃ PHÒNG</span>
               <input id="room-code" className="code-input" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="VD: K7P2QX" maxLength={12} autoComplete="off" />
             </label>
-            <button className="button button-ink button-wide" type="submit" disabled={!code.trim()}>Tham gia trận <span aria-hidden="true">→</span></button>
+            <button className="button button-ink button-wide" type="submit" disabled={busy || !code.trim()}>Tham gia trận <span aria-hidden="true">→</span></button>
           </form>
           <div className="join-footnote"><span className="live-dot" /> Trận đấu nhiều người · Cập nhật trực tiếp</div>
         </article>

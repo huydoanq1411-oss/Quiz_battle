@@ -74,6 +74,7 @@ export default function EnglishGame() {
   const [feedback, setFeedback] = useState('');
   const [itemHint, setItemHint] = useState('');
   const expiryRequested = useRef(false);
+  const expiryRetryAt = useRef(0);
 
   const storageKey = (gameKind: GameKind, dailyDate?: string) =>
       gameKind === 'daily'
@@ -116,12 +117,17 @@ export default function EnglishGame() {
     const tick = () => {
       const seconds = Math.max(0, Math.ceil((game.endsAt - (Date.now() + clockOffset)) / 1000));
       setRemaining(seconds);
-      if (seconds === 0 && !expiryRequested.current) {
+      if (seconds === 0 && !expiryRequested.current && Date.now() >= expiryRetryAt.current) {
         expiryRequested.current = true;
-        api.get<GameView>(`/english-games/${game.id}`).then((response) => applyGame(response.data));
+        void api.get<GameView>(`/english-games/${game.id}`).then((response) => applyGame(response.data)).catch(() => {
+          expiryRequested.current = false;
+          expiryRetryAt.current = Date.now() + 2000;
+          setError('Chưa lưu được kết quả. Đang thử lại…');
+        });
       }
     };
     expiryRequested.current = false;
+    expiryRetryAt.current = 0;
     tick();
     const timer = window.setInterval(tick, 150);
     return () => window.clearInterval(timer);
@@ -156,13 +162,24 @@ export default function EnglishGame() {
     setBusy(true);
     setFeedback('');
     try {
-      const response = await api.post<GameView>(`/english-games/${game.id}/answer`, { answer: selected });
+      const response = await api.post<GameView>(`/english-games/${game.id}/answer`, { questionId: game.question.id, answer: selected });
       applyGame(response.data);
       setFeedback(response.data.lastAnswerCorrect ? 'Chính xác! + điểm combo' : response.data.questionComplete ? 'Chưa đúng, sang câu tiếp theo.' : 'Chưa đúng, thử lại nhé.');
       setSelected('');
       if (response.data.questionComplete) setItemHint('');
     } catch {
       setError('Không gửi được câu trả lời. Vui lòng thử lại.');
+      try {
+        const response = await api.get<GameView>(`/english-games/${game.id}`);
+        applyGame(response.data);
+        if (response.data.question.id !== game.question.id) {
+          setSelected('');
+          setItemHint('');
+          setFeedback('Đã đồng bộ câu hỏi mới nhất.');
+        }
+      } catch {
+        // Keep the answer so it can be retried when the connection returns.
+      }
     } finally {
       setBusy(false);
     }

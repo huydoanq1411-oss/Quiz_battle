@@ -1,17 +1,20 @@
-﻿import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, type OnApplicationBootstrap, type OnModuleDestroy } from '@nestjs/common';
+import { randomInt, randomUUID } from 'node:crypto';
 import { Server } from 'socket.io';
 import { PrismaService } from '../prisma/prisma.service';
-import { QuestionService, Question, Lang, QuizLevel, QuizMode } from './question.service';
+import { QuestionService, type Question, type Lang, type QuizLevel, type QuizMode } from './question.service';
+import { RoomRepository } from './room.repository';
 
 export interface Player { userId: number; name: string; socketId: string; score: number; connected: boolean }
 export interface Room {
+  id: string;
   code: string; hostId: number; lang: Lang; mode: QuizMode; level: QuizLevel; total: number;
-  status: 'lobby' | 'playing' | 'ended';
+  status: 'lobby' | 'starting' | 'playing' | 'reveal' | 'finishing' | 'ended';
   players: Map<number, Player>;
   questions: Question[]; index: number;
   answers: Map<number, number>;
   endsAt: number;
-  timer?: NodeJS.Timeout;
+  revision: number;
 }
 
 const QUESTION_MS = 15000;
@@ -19,154 +22,226 @@ const REVEAL_MS = 3000;
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 @Injectable()
-export class GameService {
+export class GameService implements OnApplicationBootstrap, OnModuleDestroy {
   server: Server;
-  private rooms = new Map<string, Room>();
+  private readonly logger = new Logger(GameService.name);
+  private readonly timers = new Map<string, NodeJS.Timeout>();
+  private readonly revisions = new Map<string, number>();
+  private readonly memberships = new Map<string, Set<string>>();
+  private stopped = false;
 
-  constructor(private prisma: PrismaService, private questions: QuestionService) {}
+  constructor(private prisma: PrismaService, private questions: QuestionService, private rooms: RoomRepository) {}
 
-  private newCode() {
-    let c: string;
-    do {
-      c = Array.from({ length: 5 }, () => ALPHABET[Math.floor(Math.random() * ALPHABET.length)]).join('');
-    } while (this.rooms.has(c));
-    return c;
+  async onApplicationBootstrap() {
+    // One Render instance owns timers and Socket.IO connections. Redis is the
+    // durable source of truth; horizontal scaling needs a Socket.IO adapter.
+    for (const code of await this.rooms.codes()) {
+      const room = await this.rooms.update(code, async room => {
+        if (room) {
+          for (const player of room.players.values()) player.connected = false;
+          room.revision++;
+        }
+        return room;
+      });
+      if (room) this.schedule(room);
+    }
   }
 
-  private addPlayer(r: Room, u: { id: number; name: string }, socketId: string) {
-    const old = r.players.get(u.id);
-    r.players.set(u.id, { userId: u.id, name: u.name, socketId, score: old?.score ?? 0, connected: true });
+  onModuleDestroy() {
+    this.stopped = true;
+    for (const timer of this.timers.values()) clearTimeout(timer);
+    this.timers.clear();
   }
 
-  players(r: Room) {
-    return [...r.players.values()].map(p => ({
-      userId: p.userId, name: p.name, score: p.score, isHost: p.userId === r.hostId,
+  private remember(code: string, socketId: string) {
+    const codes = this.memberships.get(socketId) ?? new Set<string>();
+    codes.add(code);
+    this.memberships.set(socketId, codes);
+  }
+
+  players(room: Room) {
+    return [...room.players.values()].map(player => ({
+      userId: player.userId, name: player.name, score: player.score,
+      isHost: player.userId === room.hostId, connected: player.connected,
     }));
   }
 
-  broadcastPlayers(r: Room) {
-    this.server.to(r.code).emit('room:players', this.players(r));
+  private ranking(room: Room) {
+    return [...room.players.values()].sort((a, b) => b.score - a.score || a.userId - b.userId)
+      .map((player, index) => ({ rank: index + 1, userId: player.userId, name: player.name, score: player.score }));
   }
 
-  create(u: { id: number; name: string }, socketId: string, lang: Lang, total: number, mode: QuizMode, level: QuizLevel) {
-    const room: Room = {
-      code: this.newCode(), hostId: u.id, lang, mode, level,
-      total: Math.min(Math.max(total, 3), 20),
-      status: 'lobby', players: new Map(), questions: [], index: -1,
-      answers: new Map(), endsAt: 0,
+  publicState(room: Room, userId: number) {
+    const question = room.questions[room.index];
+    const reveal = room.status === 'reveal';
+    return {
+      id: room.id, revision: room.revision, code: room.code,
+      phase: room.status === 'finishing' ? 'reveal' : room.status === 'starting' ? 'lobby' : room.status,
+      lang: room.lang, mode: room.mode, level: room.level,
+      players: this.players(room),
+      question: question ? {
+        index: room.index, total: room.questions.length, text: question.text,
+        options: question.options, durationMs: QUESTION_MS,
+        endsAt: room.endsAt, serverNow: Date.now(),
+      } : null,
+      myChoice: room.answers.get(userId) ?? null,
+      answered: [...room.answers.keys()],
+      correctIndex: question && (reveal || room.status === 'finishing') ? question.correctIndex : null,
+      ranking: room.status === 'ended' ? this.ranking(room) : [],
     };
-    this.rooms.set(room.code, room);
-    this.addPlayer(room, u, socketId);
-    return room;
   }
 
-  join(code: string, u: { id: number; name: string }, socketId: string) {
-    const room = this.rooms.get((code ?? '').toUpperCase());
-    if (!room) return { error: 'Không tìm thấy phòng' };
-    if (room.status !== 'lobby' && !room.players.has(u.id)) return { error: 'Phòng đã bắt đầu' };
-    this.addPlayer(room, u, socketId);
-    return { room };
+  broadcastPlayers(room: Room) {
+    for (const player of room.players.values()) {
+      if (player.connected) this.server.to(player.socketId).emit('room:state', this.publicState(room, player.userId));
+    }
   }
 
-  disconnect(socketId: string) {
-    for (const r of this.rooms.values()) {
-      const p = [...r.players.values()].find(x => x.socketId === socketId);
-      if (!p) continue;
-      if (r.status === 'lobby') {
-        r.players.delete(p.userId);
-        if (r.hostId === p.userId) {
-          const next = r.players.keys().next().value;
-          if (next !== undefined) r.hostId = next;
+  async create(user: { id: number; name: string }, socketId: string, lang: Lang, total: number, mode: QuizMode, level: QuizLevel) {
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const room: Room = {
+        id: randomUUID(), code: Array.from({ length: 5 }, () => ALPHABET[randomInt(ALPHABET.length)]).join(''),
+        hostId: user.id, lang, mode, level, total: Math.min(Math.max(Math.trunc(total), 3), 20),
+        status: 'lobby', players: new Map(), questions: [], index: -1,
+        answers: new Map(), endsAt: 0, revision: 1,
+      };
+      room.players.set(user.id, { userId: user.id, name: user.name, socketId, score: 0, connected: true });
+      if (await this.rooms.create(room)) {
+        this.remember(room.code, socketId);
+        return room;
+      }
+    }
+    throw new Error('Could not allocate room code');
+  }
+
+  async join(code: string, user: { id: number; name: string }, socketId: string) {
+    const result = await this.rooms.update(code, async room => {
+      if (!room) return { error: 'Không tìm thấy phòng hoặc phòng đã hết hạn.' };
+      if (room.status !== 'lobby' && !room.players.has(user.id)) return { error: 'Phòng đã bắt đầu' };
+      const old = room.players.get(user.id);
+      room.players.set(user.id, { userId: user.id, name: user.name, socketId, score: old?.score ?? 0, connected: true });
+      if (room.status === 'lobby' && !room.players.get(room.hostId)?.connected) room.hostId = user.id;
+      room.revision++;
+      return { room };
+    });
+    if (result.room) {
+      this.remember(code, socketId);
+      this.schedule(result.room);
+    }
+    return result;
+  }
+
+  async disconnect(socketId: string) {
+    const codes = this.memberships.get(socketId);
+    this.memberships.delete(socketId);
+    for (const code of codes ?? []) {
+      const room = await this.rooms.update(code, async room => {
+        if (!room) return null;
+        const player = [...room.players.values()].find(player => player.socketId === socketId);
+        if (player) {
+          player.connected = false;
+          if (room.status === 'lobby' && room.hostId === player.userId) {
+            room.hostId = [...room.players.values()].find(candidate => candidate.connected)?.userId ?? room.hostId;
+          }
+          room.revision++;
         }
-      } else {
-        p.connected = false;
-      }
-      if (![...r.players.values()].some(x => x.connected)) {
-        clearTimeout(r.timer);
-        this.rooms.delete(r.code);
-      } else {
-        this.broadcastPlayers(r);
-      }
+        return room;
+      });
+      if (room) this.broadcastPlayers(room);
     }
   }
 
   async start(code: string, userId: number) {
-    const r = this.rooms.get(code);
-    if (!r || r.hostId !== userId || r.status !== 'lobby') return { error: 'Không thể bắt đầu' };
-    try {
-      r.questions = await this.questions.get(r.lang, r.total, r.mode, r.level);
-    } catch (e) {
-      console.error(e);
-      return { error: 'Không lấy được câu hỏi, đợi vài giây rồi thử lại' };
-    }
-    r.status = 'playing';
-    r.index = -1;
-    this.server.to(code).emit('game:start', { total: r.questions.length });
-    r.timer = setTimeout(() => this.next(r), 1500);
+    const result = await this.rooms.update(code, async room => {
+      if (!room || room.hostId !== userId || room.status !== 'lobby') return { error: 'Không thể bắt đầu' };
+      room.questions = await this.questions.get(room.lang, room.total, room.mode, room.level);
+      if (!room.questions.length) return { error: 'Chưa có câu hỏi cho cấp độ này.' };
+      room.status = 'starting';
+      room.index = -1;
+      room.endsAt = Date.now() + 1500;
+      room.revision++;
+      return { room };
+    });
+    if (!result.room) return result;
+    this.broadcastPlayers(result.room);
+    this.schedule(result.room);
     return { ok: true };
   }
 
-  private next(r: Room) {
-    if (!this.rooms.has(r.code)) return;
-    r.index++;
-    if (r.index >= r.questions.length) return void this.finish(r);
-
-    r.answers.clear();
-    r.endsAt = Date.now() + QUESTION_MS;
-    const q = r.questions[r.index];
-    this.server.to(r.code).emit('game:question', {
-      index: r.index, total: r.questions.length,
-      text: q.text, options: q.options, durationMs: QUESTION_MS,
+  async answer(code: string, userId: number, socketId: string, index: number, choice: number) {
+    const result = await this.rooms.update(code, async room => {
+      if (!room || room.status !== 'playing' || Date.now() >= room.endsAt || room.index !== index) return { error: 'Câu hỏi đã kết thúc hoặc thay đổi.' };
+      const player = room.players.get(userId);
+      if (!player || player.socketId !== socketId || !player.connected) return { error: 'Vui lòng kết nối lại phòng.' };
+      if (room.answers.has(userId)) return { room };
+      const question = room.questions[room.index];
+      if (!Number.isInteger(choice) || choice < 0 || choice >= question.options.length) return { error: 'Đáp án không hợp lệ.' };
+      room.answers.set(userId, choice);
+      if (choice === question.correctIndex) {
+        player.score += 100 + Math.max(0, Math.round(50 * (room.endsAt - Date.now()) / QUESTION_MS));
+      }
+      const online = [...room.players.values()].filter(player => player.connected);
+      if (online.length && online.every(player => room.answers.has(player.userId))) {
+        room.status = 'reveal';
+        room.endsAt = Date.now() + REVEAL_MS;
+      }
+      room.revision++;
+      return { room };
     });
-    r.timer = setTimeout(() => this.reveal(r), QUESTION_MS);
+    if (!result.room) return result;
+    this.broadcastPlayers(result.room);
+    this.schedule(result.room);
+    return { ok: true };
   }
 
-  answer(code: string, userId: number, choice: number) {
-    const r = this.rooms.get(code);
-    if (!r || r.status !== 'playing' || Date.now() > r.endsAt) return;
-    if (!r.players.has(userId) || r.answers.has(userId)) return;
-    const q = r.questions[r.index];
-    if (!Number.isInteger(choice) || choice < 0 || choice >= q.options.length) return;
+  private schedule(room: Room) {
+    if (room.revision < (this.revisions.get(room.code) ?? -1)) return;
+    this.revisions.set(room.code, room.revision);
+    clearTimeout(this.timers.get(room.code));
+    this.timers.delete(room.code);
+    if (this.stopped || room.status === 'lobby' || room.status === 'ended') return;
+    this.timers.set(room.code, setTimeout(() => { void this.advance(room.code); }, Math.max(0, room.endsAt - Date.now())));
+  }
 
-    r.answers.set(userId, choice);
-    if (choice === q.correctIndex) {
-      const bonus = Math.round((50 * (r.endsAt - Date.now())) / QUESTION_MS);
-      r.players.get(userId)!.score += 100 + bonus;
+  private async advance(code: string) {
+    if (this.stopped) return;
+    try {
+      const room = await this.rooms.update(code, async room => {
+        if (!room || room.status === 'ended' || room.status === 'lobby' || Date.now() < room.endsAt) return room;
+        if (room.status === 'finishing') {
+          const ranking = this.ranking(room);
+          // Unique roomId makes retry after a crash safe, including after the
+          // database committed but before Redis stored the ended state.
+          await this.prisma.match.upsert({
+            where: { roomId: room.id }, update: {},
+            create: {
+              roomId: room.id, code: room.code, language: room.lang, totalQuestions: room.questions.length,
+              players: { create: ranking.map(player => ({ userId: player.userId, score: player.score, rank: player.rank })) },
+            },
+          });
+          room.status = 'ended';
+        } else if (room.status === 'playing') {
+          room.status = 'reveal';
+          room.endsAt = Date.now() + REVEAL_MS;
+        } else if (room.status === 'reveal' && room.index + 1 >= room.questions.length) {
+          room.status = 'finishing';
+          room.endsAt = Date.now();
+        } else {
+          room.index++;
+          room.answers.clear();
+          room.status = 'playing';
+          room.endsAt = Date.now() + QUESTION_MS;
+        }
+        room.revision++;
+        return room;
+      });
+      if (room) {
+        this.broadcastPlayers(room);
+        this.schedule(room);
+      }
+    } catch {
+      this.logger.warn('Room update delayed; retrying without discarding saved state.');
+      if (!this.stopped) this.timers.set(code, setTimeout(() => { void this.advance(code); }, 2000));
     }
-    this.server.to(code).emit('game:answered', { userId });
-
-    const online = [...r.players.values()].filter(p => p.connected);
-    if (online.every(p => r.answers.has(p.userId))) {
-      clearTimeout(r.timer);
-      this.reveal(r);
-    }
-  }
-
-  private reveal(r: Room) {
-    r.endsAt = 0;
-    const q = r.questions[r.index];
-    this.server.to(r.code).emit('game:reveal', {
-      correctIndex: q.correctIndex,
-      answers: Object.fromEntries(r.answers),
-      players: this.players(r),
-    });
-    r.timer = setTimeout(() => this.next(r), REVEAL_MS);
-  }
-
-  private async finish(r: Room) {
-    r.status = 'ended';
-    const ranking = [...r.players.values()]
-      .sort((a, b) => b.score - a.score)
-      .map((p, i) => ({ rank: i + 1, userId: p.userId, name: p.name, score: p.score }));
-    this.server.to(r.code).emit('game:end', { ranking });
-
-    await this.prisma.match.create({
-      data: {
-        code: r.code, language: r.lang, totalQuestions: r.questions.length,
-        players: { create: ranking.map(x => ({ userId: x.userId, score: x.score, rank: x.rank })) },
-      },
-    }).catch(console.error);
-
-    setTimeout(() => this.rooms.delete(r.code), 60_000);
   }
 }

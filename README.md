@@ -2,6 +2,8 @@
 
 Quiz Battle là trò chơi thi đấu giúp học tiếng Anh với các cấp độ CEFR từ A1 đến C2. Người chơi có thể thi Time Attack trong 60 giây, hoàn thành Daily Challenge gồm 10 câu giống nhau mỗi ngày, luyện tập trong phòng nhiều người và cạnh tranh trên bảng xếp hạng Redis toàn cục.
 
+**Đưa lên cloud để chỉ cần mở link:** xem [hướng dẫn Vercel + Render + Neon + Upstash](docs/DEPLOYMENT.md). Repository đã có cấu hình triển khai; chưa có URL cloud được tạo. Máy cá nhân không cần bật sau khi các dịch vụ cloud được triển khai.
+
 ---
 
 ## Mục lục
@@ -110,7 +112,7 @@ Trình duyệt / điện thoại
 - **Nginx** phục vụ bản React đã build và làm reverse proxy, nhờ đó trình duyệt chỉ cần kết nối đến một địa chỉ.
 - **REST** (`/api`) xử lý đăng ký, đăng nhập, bảng xếp hạng và lịch sử.
 - **Socket.IO** (`/socket.io`) xử lý các hoạt động thời gian thực như phòng chơi, câu hỏi, câu trả lời và điểm số.
-- Trạng thái phòng multiplayer được lưu trong bộ nhớ backend; phiên chơi cá nhân, trạng thái hoàn thành Daily Challenge/chuỗi ngày, điểm xếp hạng và tên người chơi được lưu trong Redis. Tài khoản và lịch sử trận multiplayer được lưu trong PostgreSQL.
+- Trạng thái phòng multiplayer, phiên cá nhân, Daily Challenge và bảng xếp hạng lưu trong Redis. Backend dựng lại timer từ thời hạn đã lưu khi khởi động lại. Tài khoản và lịch sử multiplayer lưu trong PostgreSQL; `Match.roomId` unique ngăn ghi lịch sử trùng khi thử lại.
 - Chỉ container `frontend` mở cổng ra máy chủ; backend và database chỉ truy cập được bên trong mạng Docker.
 
 ## Luật chơi và tính điểm
@@ -187,15 +189,10 @@ Gói bắt tay Socket.IO phải có JWT: `io({ auth: { token } })`. Token không
 | Sự kiện | Chiều | Payload | Mô tả |
 |---|---|---|---|
 | `room:create` | client → server | `{lang, total, mode, level}` | Tạo phòng; ack trả về `{ok, code}` |
-| `room:join` | client → server | `{code}` | Vào phòng; ack trả về `{ok, code, lang, mode, level}` hoặc `{error}` |
-| `room:players` | server → phòng | `[{userId, name, score, isHost}]` | Danh sách người chơi, điểm và trạng thái chủ phòng |
+| `room:join` | client → server | `{code}` | Vào hoặc khôi phục phòng; ack có `state` hoặc `{error}` |
+| `room:state` | server → từng người chơi | `{id, code, revision, phase, players, question, myChoice, answered, correctIndex, ranking, lang, mode, level}` | Snapshot đầy đủ; đáp án chuẩn chỉ có khi công bố. Question có `endsAt` và `serverNow` |
 | `game:start` | client → server | `{code}` | Chủ phòng yêu cầu bắt đầu trận |
-| `game:start` | server → phòng | `{total}` | Thông báo trận đấu đã bắt đầu |
-| `game:question` | server → phòng | `{index, total, text, options, durationMs}` | Câu hỏi mới (không gửi kèm đáp án đúng) |
-| `game:answer` | client → server | `{code, choice}` | Gửi phương án đã chọn |
-| `game:answered` | server → phòng | `{userId}` | Thông báo người chơi đã trả lời (hiện dấu ✓) |
-| `game:reveal` | server → phòng | `{correctIndex, answers, players}` | Công bố đáp án và điểm mới khi hết giờ hoặc mọi người đang kết nối đã trả lời |
-| `game:end` | server → phòng | `{ranking}` | Bảng xếp hạng cuối trận; kết quả được lưu vào database |
+| `game:answer` | client → server | `{code, index, choice}` | Gửi lựa chọn cho đúng câu hiện tại; ack `{ok}` hoặc `{error}` |
 
 ## Ba cách chạy ứng dụng
 
@@ -267,7 +264,7 @@ npx prisma migrate dev       # chỉ chạy khi khởi tạo/cập nhật schema
 npm run start:dev
 ```
 
-Đợi thông báo `Nest application successfully started`. Backend chạy tại `http://localhost:3000`; khi sửa file trong `backend/src/`, NestJS sẽ tự biên dịch và khởi động lại. Các phòng multiplayer đang chơi sẽ mất khi backend khởi động lại, vì trạng thái phòng hiện vẫn nằm trong bộ nhớ.
+Đợi thông báo `Nest application successfully started`. Backend chạy tại `http://localhost:3000`; khi sửa file trong `backend/src/`, NestJS sẽ tự biên dịch và khởi động lại. Phòng multiplayer được khôi phục từ Redis; trình duyệt tự kết nối lại và nhận snapshot hiện tại.
 
 **Cửa sổ 3: Frontend** — cài dependency lần đầu; sau đó chạy Vite:
 
@@ -391,17 +388,17 @@ quiz-battle/
 
 ## Giới hạn
 
-- Phòng multiplayer được lưu trong bộ nhớ server nên sẽ mất khi backend khởi động lại; chạy nhiều backend cần Socket.IO Redis adapter. Phiên chơi cá nhân và bảng xếp hạng đã dùng Redis.
+- Chỉ hỗ trợ một backend instance. Chạy nhiều backend cần Socket.IO adapter và cơ chế sở hữu timer; không bật autoscaling cho cấu hình hiện tại. Phòng Redis hết hạn sau 24 giờ không cập nhật.
 - Schema và seed Kanji cũ vẫn nằm trong repository để tương thích, nhưng frontend hiện tập trung vào học tiếng Anh.
-- Kết nối lại giữa trận hiện chưa khôi phục được câu hỏi đang chơi.
+- Backend khôi phục phòng và thời hạn đã lưu; câu quá hạn chuyển sang công bố đáp án rồi tiếp tục. Đáp án chưa được máy chủ xác nhận có thể cần gửi lại.
 - Cloudflare quick tunnel không đảm bảo uptime và chỉ phù hợp cho demo, không dùng làm môi trường production.
 
 ## Định hướng phát triển
 
-- Cho phép vào lại trận đang diễn ra sau khi mất kết nối
+- Kiểm thử khôi phục trận trên môi trường cloud thực tế
 - Thêm danh mục câu hỏi và bộ câu hỏi tùy chỉnh do quản trị viên quản lý
 - Thêm hiệu ứng âm thanh, chuỗi trả lời đúng và thanh đếm ngược đỏ trong 5 giây cuối
-- Lưu trạng thái phòng trong Redis và triển khai lên VPS
+- Hỗ trợ nhiều backend instance khi nhu cầu tăng
 
 ## Thêm tính năng cho web
 

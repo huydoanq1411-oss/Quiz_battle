@@ -26,9 +26,10 @@ export class EnglishGameController {
   }
 
   @Post(':id/answer')
-  answer(@Req() request: any, @Param('id') id: string, @Body() body: { answer?: string }) {
+  answer(@Req() request: any, @Param('id') id: string, @Body() body: { questionId?: string; answer?: string }) {
     if (typeof body.answer !== 'string') throw new BadRequestException('Câu trả lời phải là chuỗi.');
-    return this.games.answer(request.user.id, id, body.answer);
+    if (typeof body.questionId !== 'string' || !body.questionId) throw new BadRequestException('Thiếu mã câu hỏi.');
+    return this.games.answer(request.user.id, id, body.questionId, body.answer);
   }
 
   @Post(':id/items')
