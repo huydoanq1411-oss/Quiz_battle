@@ -11,7 +11,25 @@ Mục tiêu: người chơi mở URL HTTPS là sử dụng được, kể cả k
 | Tài khoản và lịch sử | Neon PostgreSQL | Prisma schema và migrations |
 | Phòng, phiên cá nhân, bảng xếp hạng | Upstash Redis | `REDIS_URL`, giao thức Redis qua TLS |
 
-Chưa có dịch vụ hoặc URL cloud nào được tạo bởi thay đổi code này. Cần tạo tài nguyên trong tài khoản của chủ dự án và cấu hình các giá trị bên dưới trước khi sử dụng.
+## Tiến độ triển khai — 17/11/2026
+
+- Frontend đã deploy thành công trên Vercel theo ảnh người dùng cung cấp.
+- Backend Render đã Live tại `https://quiz-battle-api.onrender.com`, từ commit `ee449e4`.
+- Health check: `https://quiz-battle-api.onrender.com/api/health`. Người dùng đã xác nhận truy cập thành công; chưa được kiểm tra độc lập từ môi trường phát triển.
+- Giá trị kết nối frontend với backend:
+
+  ```dotenv
+  VITE_API_URL=https://quiz-battle-api.onrender.com/api
+  VITE_SOCKET_URL=https://quiz-battle-api.onrender.com
+  ```
+
+- Domain frontend ban đầu: `quizbattle-frontend-iota.vercel.app`. Yêu cầu đổi sang `quizbattle.vercel.app` bị Vercel từ chối vì đã gán cho project khác. Domain thay thế sau đó chưa được xác nhận trong phiên làm việc.
+- Kiểm tra domain cuối trong Vercel → Settings → Domains, rồi đặt `CLIENT_ORIGIN` trên Render thành origin HTTPS tương ứng, không có `/` cuối. Lưu và redeploy backend nếu giá trị thay đổi.
+- Nếu chưa thêm hai biến `VITE_*` phía trên, thêm trong Vercel → Settings → Environment Variables → Production, rồi redeploy frontend.
+- Còn cần xác nhận luồng đăng ký, đăng nhập, tạo/vào phòng và khôi phục giữa trận trên domain cuối.
+- Secrets được quản lý trong dashboard của dịch vụ, không lưu connection string, mật khẩu hoặc `JWT_SECRET` vào Git.
+
+Các mục bên dưới là hướng dẫn cấu hình và tái triển khai.
 
 ## 1. Tạo database
 

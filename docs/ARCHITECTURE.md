@@ -1,6 +1,6 @@
 # Kiến trúc cloud và khôi phục multiplayer
 
-Phạm vi: giữ React/Vite, NestJS, Socket.IO, Prisma/PostgreSQL và Redis; chuẩn bị một backend Render cùng frontend Vercel. Chưa phát hành cloud, chưa bật autoscaling hoặc thêm dịch vụ trả phí.
+Phạm vi: giữ React/Vite, NestJS, Socket.IO, Prisma/PostgreSQL và Redis; một backend Render cùng frontend Vercel. Trạng thái triển khai và kiểm thử thực tế được ghi trong `DEPLOYMENT.md`. Chưa bật autoscaling hoặc thêm dịch vụ trả phí.
 
 ## Luồng dữ liệu
 

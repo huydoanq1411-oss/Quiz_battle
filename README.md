@@ -2,7 +2,7 @@
 
 Quiz Battle là trò chơi thi đấu giúp học tiếng Anh với các cấp độ CEFR từ A1 đến C2. Người chơi có thể thi Time Attack trong 60 giây, hoàn thành Daily Challenge gồm 10 câu giống nhau mỗi ngày, luyện tập trong phòng nhiều người và cạnh tranh trên bảng xếp hạng Redis toàn cục.
 
-**Đưa lên cloud để chỉ cần mở link:** xem [hướng dẫn Vercel + Render + Neon + Upstash](docs/DEPLOYMENT.md). Repository đã có cấu hình triển khai; chưa có URL cloud được tạo. Máy cá nhân không cần bật sau khi các dịch vụ cloud được triển khai.
+**Đưa lên cloud để chỉ cần mở link:** xem [hướng dẫn và tiến độ Vercel + Render + Neon + Upstash](docs/DEPLOYMENT.md). Frontend đã deploy trên Vercel; backend Render tại `https://quiz-battle-api.onrender.com`. Cần đối chiếu domain frontend cuối và kiểm thử luồng chơi theo hướng dẫn. Máy cá nhân không cần bật để phục vụ bản cloud.
 
 ---
 
