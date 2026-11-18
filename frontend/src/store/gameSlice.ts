@@ -1,8 +1,9 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
+import type { ReviewItem } from '../review';
 
 interface PlayerInfo { userId: number; name: string; score: number; isHost: boolean }
 interface Q { index: number; total: number; text: string; options: string[]; durationMs: number; endsAt: number; serverNow: number }
-interface Rank { rank: number; userId: number; name: string; score: number }
+interface Rank { rank: number; userId: number; name: string; score: number; correct?: number; accuracy?: number; responseMs?: number }
 type QuizMode = 'VOCAB' | 'IELTS' | 'JLPT';
 type QuizLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2' | 'A1-A2' | 'B1-B2' | 'C1-C2' | 'N5' | 'N4' | 'N3' | 'N2' | 'N1';
 
@@ -20,6 +21,8 @@ export interface GameState {
   answered: number[];
   correctIndex: number | null;
   ranking: Rank[];
+  review?: ReviewItem[];
+  duel?: boolean;
 }
 
 const initial: GameState = {

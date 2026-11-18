@@ -62,6 +62,43 @@ describe('Persistent multiplayer', () => {
 
   afterEach(() => { service.onModuleDestroy(); jest.useRealTimers(); });
 
+  it('requires exactly two connected accounts for a fixed ten-question duel', async () => {
+    get.mockResolvedValue(Array.from({ length: 10 }, () => questions[0]));
+    const room = await service.create(host, 'host', 'EN', 3, 'VOCAB', 'A1', true);
+    expect(room.total).toBe(10);
+    expect(await service.start(room.code, host.id)).toHaveProperty('error');
+    await service.join(room.code, other, 'guest');
+    expect(await service.join(room.code, { id: 3, name: 'Third' }, 'third')).toHaveProperty('error');
+    expect(await service.start(room.code, host.id)).toEqual({ ok: true });
+    expect(get).toHaveBeenCalledWith('EN', 10, 'VOCAB', 'A1');
+    await jest.advanceTimersByTimeAsync(1500);
+    await jest.advanceTimersByTimeAsync(1000);
+    await service.answer(room.code, host.id, 'host', 0, 0);
+    await service.answer(room.code, host.id, 'host', 0, 0);
+    await jest.advanceTimersByTimeAsync(2000);
+    await service.answer(room.code, other.id, 'guest', 0, 0);
+    expect(store.data.get(room.code)!.players.get(1)).toMatchObject({ correct: 1, responseMs: 1000 });
+    expect(store.data.get(room.code)!.players.get(2)).toMatchObject({ correct: 1, responseMs: 3000 });
+    await service.join(room.code, host, 'reconnected');
+    expect(store.data.get(room.code)!.players.get(1)?.responseMs).toBe(1000);
+  });
+
+  it('ranks duel accuracy before speed and charges unanswered questions fifteen seconds', async () => {
+    const code = await playing();
+    const room = store.data.get(code)!;
+    room.duel = true; room.total = 10;
+    room.players.get(1)!.correct = 7; room.players.get(1)!.responseMs = 1000;
+    room.players.get(2)!.correct = 8; room.players.get(2)!.responseMs = 10000;
+    await jest.advanceTimersByTimeAsync(15000);
+    expect(store.data.get(code)!.players.get(1)?.responseMs).toBe(16000);
+    const ended = store.data.get(code)!; ended.status = 'ended';
+    const state = service.publicState(ended, 1);
+    expect(state.ranking[0]).toMatchObject({ userId: 2, correct: 8, accuracy: 80 });
+    ended.players.get(1)!.correct = 8;
+    ended.players.get(1)!.responseMs = ended.players.get(2)!.responseMs;
+    expect(service.publicState(ended, 1).ranking.map(player => player.rank)).toEqual([1, 1]);
+  });
+
   it('rejects concurrent starts while questions load', async () => {
     let resolve!: (value: typeof questions) => void;
     get.mockImplementation(() => new Promise(done => { resolve = done; }));
@@ -135,5 +172,28 @@ describe('Persistent multiplayer', () => {
     await jest.advanceTimersByTimeAsync(1);
     expect(upsert.mock.calls.map(call => call[0].where.roomId)).toEqual([saved.id, saved.id]);
     expect(store.data.get(code)!.status).toBe('ended');
+  });
+
+  it('collects private mistakes and saves them with match results without leaking them during play', async () => {
+    const code = await playing();
+    await service.answer(code, 1, 'host', 0, 0);
+    expect(service.publicState(store.data.get(code)!, 1).review).toBeUndefined();
+    await service.answer(code, 2, 'guest', 0, 1);
+    expect(service.publicState(store.data.get(code)!, 2).review).toBeUndefined();
+    await jest.advanceTimersByTimeAsync(3001);
+    const room = store.data.get(code)!;
+    expect(room.status).toBe('ended');
+    expect(service.publicState(room, 1).review).toEqual([]);
+    expect(service.publicState(room, 2).review?.[0]).toMatchObject({ submittedAnswers: ['No'], correctAnswer: 'Yes', reason: 'wrong' });
+    expect(upsert.mock.calls[0][0].create.players.create.find((player: { userId: number }) => player.userId === 2).review).toHaveLength(1);
+  });
+
+  it('records a multiplayer question left unanswered at the deadline', async () => {
+    const code = await playing();
+    await service.answer(code, 1, 'host', 0, 0);
+    await jest.advanceTimersByTimeAsync(18001);
+    const room = store.data.get(code)!;
+    expect(room.status).toBe('ended');
+    expect(service.publicState(room, 2).review?.[0]).toMatchObject({ reason: 'unanswered', submittedAnswers: [], number: 1 });
   });
 });

@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, Req, UseGuards, ParseIntPipe, NotFoundException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -11,7 +11,7 @@ export class MatchController {
   mine(@Req() req: any) {
     return this.prisma.matchPlayer.findMany({
       where: { userId: req.user.id },
-      include: { match: true },
+      select: { id: true, score: true, rank: true, matchId: true, userId: true, match: true },
       orderBy: { id: 'desc' },
       take: 20,
     });
@@ -39,10 +39,15 @@ export class MatchController {
   }
 
   @Get(':id')
-  detail(@Param('id') id: string) {
-    return this.prisma.match.findUnique({
-      where: { id: +id },
-      include: { players: { include: { user: { select: { name: true } } }, orderBy: { rank: 'asc' } } },
-    });
+  async detail(@Req() req: any, @Param('id', ParseIntPipe) id: number) {
+    const [match, ownResult] = await Promise.all([
+      this.prisma.match.findUnique({
+        where: { id },
+        include: { players: { select: { id: true, userId: true, score: true, rank: true, correct: true, responseMs: true, user: { select: { name: true } } }, orderBy: { rank: 'asc' } } },
+      }),
+      this.prisma.matchPlayer.findUnique({ where: { matchId_userId: { matchId: id, userId: req.user.id } }, select: { review: true } }),
+    ]);
+    if (!match) throw new NotFoundException('Không tìm thấy trận đấu.');
+    return { ...match, review: ownResult?.review ?? null };
   }
 }

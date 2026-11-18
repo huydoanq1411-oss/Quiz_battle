@@ -11,6 +11,7 @@ export interface GrammarEntry {
   answer: string;
   distractors: [string, string, string];
   level: CefrLevel;
+  explanation: string;
 }
 
 export const VOCABULARY: readonly VocabularyEntry[] = [
@@ -77,28 +78,28 @@ export const VOCABULARY: readonly VocabularyEntry[] = [
 ];
 
 export const GRAMMAR: readonly GrammarEntry[] = [
-  { sentence: 'She ____ to school every day.', answer: 'walks', distractors: ['walk', 'walking', 'walked'], level: 'A1' },
-  { sentence: 'They ____ watching a film now.', answer: 'are', distractors: ['is', 'be', 'was'], level: 'A1' },
-  { sentence: 'I ____ a new student last year.', answer: 'was', distractors: ['am', 'were', 'be'], level: 'A1' },
-  { sentence: 'There ____ two books on the table.', answer: 'are', distractors: ['is', 'was', 'be'], level: 'A1' },
-  { sentence: 'We ____ visit our grandparents tomorrow.', answer: 'will', distractors: ['did', 'were', 'have'], level: 'A2' },
-  { sentence: 'He has lived here ____ 2020.', answer: 'since', distractors: ['for', 'during', 'from'], level: 'A2' },
-  { sentence: 'This is the ____ cake I have ever tasted.', answer: 'best', distractors: ['better', 'good', 'well'], level: 'A2' },
-  { sentence: 'You ____ wear a seat belt while driving.', answer: 'must', distractors: ['might to', 'could to', 'would have'], level: 'A2' },
-  { sentence: 'If it rains, we ____ at home.', answer: 'will stay', distractors: ['stayed', 'are stay', 'would stayed'], level: 'B1' },
-  { sentence: 'The report ____ by the team yesterday.', answer: 'was written', distractors: ['wrote', 'is writing', 'has write'], level: 'B1' },
-  { sentence: 'She asked me where ____.', answer: 'I lived', distractors: ['do I live', 'did I lived', 'I live?'], level: 'B1' },
-  { sentence: 'Despite ____ tired, he finished the work.', answer: 'being', distractors: ['be', 'was', 'to being'], level: 'B1' },
-  { sentence: 'Had they left earlier, they ____ the train.', answer: 'would have caught', distractors: ['will catch', 'would catch', 'had caught'], level: 'B2' },
-  { sentence: 'The more you practise, ____ you become.', answer: 'the more confident', distractors: ['more confident', 'most confident', 'the most confident'], level: 'B2' },
-  { sentence: 'The proposal, ____ was revised twice, was approved.', answer: 'which', distractors: ['what', 'who', 'whose'], level: 'B2' },
-  { sentence: 'No sooner ____ the speech than the lights went out.', answer: 'had she begun', distractors: ['she had begun', 'did she began', 'has she begun'], level: 'B2' },
-  { sentence: 'The findings, ____ independently, were considered robust.', answer: 'having been verified', distractors: ['verified them', 'to verify', 'having verified'], level: 'C1' },
-  { sentence: 'Were it not for her guidance, we ____ the deadline.', answer: 'would miss', distractors: ['will miss', 'missed', 'would have miss'], level: 'C1' },
-  { sentence: 'The policy is likely to fail unless it ____ consistently.', answer: 'is enforced', distractors: ['enforces', 'will enforce', 'enforced'], level: 'C1' },
-  { sentence: 'So compelling ____ the evidence that the case was reopened.', answer: 'was', distractors: ['were', 'is', 'has'], level: 'C1' },
-  { sentence: 'Only after the audit ____ the discrepancy become apparent.', answer: 'did', distractors: ['had', 'was', 'has'], level: 'C2' },
-  { sentence: 'The measures are intended to reduce, if not entirely ____, the risk.', answer: 'eliminate', distractors: ['elimination', 'eliminated', 'eliminating'], level: 'C2' },
-  { sentence: 'Much as I ____ with the conclusion, the evidence is persuasive.', answer: 'disagree', distractors: ['am disagree', 'disagreed', 'would disagreeing'], level: 'C2' },
-  { sentence: 'Not until the data were reanalysed ____ the flaw.', answer: 'was identified', distractors: ['identified', 'did identify', 'has identified'], level: 'C2' },
+  { sentence: 'She ____ to school every day.', answer: 'walks', distractors: ['walk', 'walking', 'walked'], level: 'A1', explanation: '“Every day” diễn tả thói quen ở hiện tại đơn. Chủ ngữ “she” là ngôi thứ ba số ít nên động từ thêm -s: walks.' },
+  { sentence: 'They ____ watching a film now.', answer: 'are', distractors: ['is', 'be', 'was'], level: 'A1', explanation: '“Now” chỉ hành động đang diễn ra. Hiện tại tiếp diễn dùng am/is/are + V-ing; “they” đi với “are”.' },
+  { sentence: 'I ____ a new student last year.', answer: 'was', distractors: ['am', 'were', 'be'], level: 'A1', explanation: '“Last year” chỉ quá khứ. Động từ “be” ở quá khứ với chủ ngữ “I” là “was”.' },
+  { sentence: 'There ____ two books on the table.', answer: 'are', distractors: ['is', 'was', 'be'], level: 'A1', explanation: 'Cấu trúc “there are” dùng để nói có nhiều vật ở hiện tại. “Two books” là danh từ số nhiều nên chọn “are”.' },
+  { sentence: 'We ____ visit our grandparents tomorrow.', answer: 'will', distractors: ['did', 'were', 'have'], level: 'A2', explanation: '“Tomorrow” chỉ tương lai. Dùng “will” + động từ nguyên mẫu để diễn đạt hành động trong tương lai.' },
+  { sentence: 'He has lived here ____ 2020.', answer: 'since', distractors: ['for', 'during', 'from'], level: 'A2', explanation: 'Hiện tại hoàn thành dùng “since” với mốc bắt đầu như năm 2020. “For” đi với khoảng thời gian, chẳng hạn “for six years”.' },
+  { sentence: 'This is the ____ cake I have ever tasted.', answer: 'best', distractors: ['better', 'good', 'well'], level: 'A2', explanation: 'Câu so sánh một chiếc bánh với tất cả những chiếc đã từng nếm nên dùng so sánh nhất. Dạng so sánh nhất bất quy tắc của “good” là “best”.' },
+  { sentence: 'You ____ wear a seat belt while driving.', answer: 'must', distractors: ['might to', 'could to', 'would have'], level: 'A2', explanation: '“Must” diễn tả sự bắt buộc, ở đây là thắt dây an toàn khi lái xe. Sau “must” dùng động từ nguyên mẫu không “to”.' },
+  { sentence: 'If it rains, we ____ at home.', answer: 'will stay', distractors: ['stayed', 'are stay', 'would stayed'], level: 'B1', explanation: 'Điều kiện loại 1 nói về khả năng có thật trong tương lai: If + hiện tại đơn, will + động từ nguyên mẫu.' },
+  { sentence: 'The report ____ by the team yesterday.', answer: 'was written', distractors: ['wrote', 'is writing', 'has write'], level: 'B1', explanation: 'Bản báo cáo là vật được viết nên dùng bị động. “Yesterday” yêu cầu quá khứ đơn: was/were + quá khứ phân từ; “write” có phân từ là “written”.' },
+  { sentence: 'She asked me where ____.', answer: 'I lived', distractors: ['do I live', 'did I lived', 'I live?'], level: 'B1', explanation: 'Câu hỏi gián tiếp dùng trật tự chủ ngữ + động từ, không đảo trợ động từ. Sau “asked”, câu này dùng dạng lùi thì “I lived”.' },
+  { sentence: 'Despite ____ tired, he finished the work.', answer: 'being', distractors: ['be', 'was', 'to being'], level: 'B1', explanation: '“Despite” là giới từ, theo sau bởi danh từ hoặc V-ing. Vì vậy dùng “being tired”, không dùng động từ chia “was”.' },
+  { sentence: 'Had they left earlier, they ____ the train.', answer: 'would have caught', distractors: ['will catch', 'would catch', 'had caught'], level: 'B2', explanation: '“Had they left” là đảo ngữ của “If they had left”, điều kiện loại 3. Kết quả giả định trong quá khứ dùng would have + quá khứ phân từ.' },
+  { sentence: 'The more you practise, ____ you become.', answer: 'the more confident', distractors: ['more confident', 'most confident', 'the most confident'], level: 'B2', explanation: 'So sánh kép dùng “the + so sánh hơn, the + so sánh hơn”, nghĩa là càng luyện tập thì càng tự tin.' },
+  { sentence: 'The proposal, ____ was revised twice, was approved.', answer: 'which', distractors: ['what', 'who', 'whose'], level: 'B2', explanation: 'Mệnh đề quan hệ không xác định bổ sung thông tin cho vật “the proposal”. Dùng “which” làm chủ ngữ; “who” chỉ người, “whose” chỉ sở hữu.' },
+  { sentence: 'No sooner ____ the speech than the lights went out.', answer: 'had she begun', distractors: ['she had begun', 'did she began', 'has she begun'], level: 'B2', explanation: 'Khi “No sooner” đứng đầu câu, dùng đảo ngữ: No sooner had + chủ ngữ + quá khứ phân từ + than + quá khứ đơn.' },
+  { sentence: 'The findings, ____ independently, were considered robust.', answer: 'having been verified', distractors: ['verified them', 'to verify', 'having verified'], level: 'C1', explanation: 'Các phát hiện đã được kiểm chứng trước khi được đánh giá. Phân từ hoàn thành bị động “having been + V3” thể hiện hành động bị động xảy ra trước.' },
+  { sentence: 'Were it not for her guidance, we ____ the deadline.', answer: 'would miss', distractors: ['will miss', 'missed', 'would have miss'], level: 'C1', explanation: '“Were it not for” là đảo ngữ điều kiện giả định ở hiện tại, nghĩa là nếu không nhờ. Mệnh đề kết quả dùng would + động từ nguyên mẫu.' },
+  { sentence: 'The policy is likely to fail unless it ____ consistently.', answer: 'is enforced', distractors: ['enforces', 'will enforce', 'enforced'], level: 'C1', explanation: 'Chính sách được thực thi nên dùng bị động. Sau “unless” trong điều kiện tương lai dùng hiện tại đơn: is enforced.' },
+  { sentence: 'So compelling ____ the evidence that the case was reopened.', answer: 'was', distractors: ['were', 'is', 'has'], level: 'C1', explanation: 'Đảo ngữ nhấn mạnh: So + tính từ + be + chủ ngữ + that. “Evidence” là danh từ không đếm được và ngữ cảnh ở quá khứ nên dùng “was”.' },
+  { sentence: 'Only after the audit ____ the discrepancy become apparent.', answer: 'did', distractors: ['had', 'was', 'has'], level: 'C2', explanation: 'Cụm “Only after” đứng đầu câu yêu cầu đảo ngữ ở mệnh đề chính. Quá khứ đơn dùng did + chủ ngữ + động từ nguyên mẫu “become”.' },
+  { sentence: 'The measures are intended to reduce, if not entirely ____, the risk.', answer: 'eliminate', distractors: ['elimination', 'eliminated', 'eliminating'], level: 'C2', explanation: '“Reduce” và “eliminate” là hai động từ song song cùng phụ thuộc vào “to”. Vì vậy chỗ trống cần động từ nguyên mẫu “eliminate”.' },
+  { sentence: 'Much as I ____ with the conclusion, the evidence is persuasive.', answer: 'disagree', distractors: ['am disagree', 'disagreed', 'would disagreeing'], level: 'C2', explanation: '“Much as” mở đầu mệnh đề nhượng bộ, nghĩa là mặc dù. “Disagree” là động từ thường ở hiện tại, không đi cùng “am”.' },
+  { sentence: 'Not until the data were reanalysed ____ identified.', answer: 'was the flaw', distractors: ['the flaw was', 'did the flaw', 'has the flaw'], level: 'C2', explanation: '“Not until” đầu câu yêu cầu đảo ngữ ở mệnh đề chính. Bị động quá khứ “the flaw was identified” đổi thành “was the flaw identified”.' },
 ];

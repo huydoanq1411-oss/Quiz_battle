@@ -4,8 +4,10 @@ import { getEnglishGameModule, type EnglishGameQuestion, type EnglishModeId } fr
 import type { CefrLevel } from './english-learning-bank';
 import { RedisService } from '../redis/redis.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { makeReviewItem, type ReviewItem } from './review';
+import { TOPICS, type Topic } from './topics';
 
-type SessionKind = 'time-attack' | 'daily';
+type SessionKind = 'time-attack' | 'daily' | 'lesson' | 'challenge';
 type ItemId = 'fifty-fifty' | 'extra-time' | 'hint';
 type SessionStatus = 'playing' | 'finished';
 
@@ -32,14 +34,22 @@ interface EnglishSession {
   endsAt: number;
   question: EnglishGameQuestion;
   dailyStreak?: number;
+  review?: ReviewItem[];
+  topic?: Topic;
+  challengeId?: string;
+  completedAt?: number;
+  weeklyDays?: number;
+  dailyGoalMet?: boolean;
 }
 
+interface Challenge { id: string; seed: string; level: CefrLevel; topic?: Topic; expiresAt: number }
+
 const LEVELS: readonly CefrLevel[] = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
-const PLAYABLE_MODES: readonly EnglishModeId[] = ['meaning-choice', 'letter-order', 'fill-gap', 'listen-choice', 'wordle'];
+const PLAYABLE_MODES: readonly EnglishModeId[] = ['meaning-choice', 'letter-order', 'fill-gap', 'listen-choice', 'wordle', 'sentence-order', 'error-correction', 'word-match'];
 const DAILY_MODES: readonly EnglishModeId[] = ['meaning-choice', 'letter-order', 'fill-gap', 'listen-choice', 'wordle'];
 const TIME_ATTACK_MS = 60_000;
 const DAILY_QUESTION_COUNT = 10;
-const SESSION_TTL_SECONDS = 60 * 60 * 24 * 2;
+const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 
 const utcDate = (time = Date.now()) => new Date(time).toISOString().slice(0, 10);
 
@@ -66,13 +76,20 @@ function seededRandom(seed: string): () => number {
 export class EnglishGameService {
   constructor(private readonly redis: RedisService, private readonly prisma: PrismaService) {}
 
-  async start(userId: number, kind: SessionKind, level: CefrLevel) {
+  async start(userId: number, kind: SessionKind, level: CefrLevel, topic?: Topic, challenge?: Challenge) {
     if (!LEVELS.includes(level)) throw new BadRequestException('Cấp độ CEFR không hợp lệ.');
+    if (topic !== undefined && !TOPICS.includes(topic)) throw new BadRequestException('Chủ đề không hợp lệ.');
+    if (kind === 'challenge' && !challenge) throw new BadRequestException('Thiếu thách đấu.');
     const dailyDate = kind === 'daily' ? utcDate() : undefined;
     const effectiveLevel: CefrLevel = kind === 'daily' ? 'B1' : level;
     if (dailyDate) {
       const completedKey = this.dailyCompletedKey(userId, dailyDate);
-      if (await this.redis.client.exists(completedKey)) throw new ConflictException('Bạn đã hoàn thành Daily Challenge hôm nay.');
+      if (await this.redis.client.exists(completedKey)) {
+        const completedId = await this.redis.client.get(this.dailyActiveKey(userId, dailyDate));
+        const completed = completedId ? await this.readSession(completedId) : null;
+        if (completed?.userId === userId && completed.status === 'finished') return this.publicState(completed);
+        throw new ConflictException('Bạn đã hoàn thành Daily Challenge hôm nay.');
+      }
       const activeKey = this.dailyActiveKey(userId, dailyDate);
       const activeId = await this.redis.client.get(activeKey);
       if (activeId) {
@@ -88,7 +105,9 @@ export class EnglishGameService {
       userId,
       kind,
       level: effectiveLevel,
-      seed: kind === 'daily' ? `${dailyDate}:${userId}` : `${id}:${now}`,
+      topic: kind === 'daily' ? undefined : topic,
+      challengeId: challenge?.id,
+      seed: challenge?.seed ?? id,
       dailyDate,
       questionIndex: 0,
       score: 0,
@@ -101,10 +120,11 @@ export class EnglishGameService {
       tabSwitches: 0,
       usedItems: [],
       hiddenOptions: [],
+      review: [],
       status: 'playing',
       startedAt: now,
-      endsAt: now + (kind === 'daily' ? 15 * DAILY_QUESTION_COUNT * 1000 : TIME_ATTACK_MS),
-      question: this.makeQuestion(kind, effectiveLevel, sessionSeed(kind, dailyDate, id, 0), 0),
+      endsAt: Math.min(challenge?.expiresAt ?? Infinity, now + (kind === 'lesson' ? 600_000 : kind === 'time-attack' ? TIME_ATTACK_MS : 150_000)),
+      question: this.makeQuestion(kind, effectiveLevel, sessionSeed(kind, dailyDate, challenge?.seed ?? id, 0), 0, topic),
     };
     if (dailyDate) {
       const reserved = await this.redis.client.set(this.dailyActiveKey(userId, dailyDate), id, 'EX', SESSION_TTL_SECONDS, 'NX');
@@ -165,20 +185,25 @@ export class EnglishGameService {
     }
 
     const wordleFailed = session.question.mode === 'wordle' && !correct;
-    const completed = session.kind === 'daily'
+    if (!correct) {
+      session.review ??= [];
+      session.review.push(makeReviewItem(session.question, session.questionIndex,
+        session.question.mode === 'wordle' ? [...session.guesses] : [answer.trim().slice(0, 200)], 'wrong'));
+    }
+    const completed = session.kind !== 'time-attack'
       ? session.questionIndex + 1 >= DAILY_QUESTION_COUNT
       : false;
     if (completed) {
       session.questionIndex++;
-      await this.finish(session);
+      await this.finish(session, false);
     } else if (session.kind === 'time-attack' && Date.now() >= session.endsAt) {
-      await this.finish(session);
+      await this.finish(session, false);
     } else {
       session.questionIndex++;
       session.guesses = [];
       session.guessFeedback = [];
       session.hiddenOptions = [];
-      session.question = this.makeQuestion(session.kind, session.level, sessionSeed(session.kind, session.dailyDate, session.seed, session.questionIndex), session.questionIndex);
+      session.question = this.makeQuestion(session.kind, session.level, sessionSeed(session.kind, session.dailyDate, session.seed, session.questionIndex), session.questionIndex, session.topic);
       await this.saveSession(session);
     }
 
@@ -191,6 +216,7 @@ export class EnglishGameService {
 
   private async useItemLocked(userId: number, id: string, item: ItemId) {
     const session = await this.requireSession(userId, id);
+    if (session.kind !== 'time-attack') throw new BadRequestException('Vật phẩm chỉ dùng trong Time Attack.');
     if (session.status !== 'playing' || Date.now() >= session.endsAt) throw new ConflictException('Lượt chơi đã kết thúc.');
     if (!(['fifty-fifty', 'extra-time', 'hint'] as string[]).includes(item)) throw new BadRequestException('Vật phẩm không hợp lệ.');
     if (session.usedItems.includes(item)) throw new ConflictException('Mỗi vật phẩm chỉ dùng được một lần trong lượt chơi.');
@@ -240,20 +266,23 @@ export class EnglishGameService {
     return results;
   }
 
-  private makeQuestion(kind: SessionKind, level: CefrLevel, seed: string, questionIndex?: number): EnglishGameQuestion {
+  private makeQuestion(kind: SessionKind, level: CefrLevel, seed: string, questionIndex?: number, topic?: Topic): EnglishGameQuestion {
     const random = seededRandom(seed);
+    const pool: readonly EnglishModeId[] = topic ? ['meaning-choice', 'letter-order', 'listen-choice', 'word-match'] : PLAYABLE_MODES;
     const mode = kind === 'daily'
       ? DAILY_MODES[(questionIndex ?? 0) % DAILY_MODES.length]
-      : PLAYABLE_MODES[Math.floor(random() * PLAYABLE_MODES.length)];
-    return getEnglishGameModule(mode).generateQuestion(level, random);
+      : pool[Math.floor(random() * pool.length)];
+    return getEnglishGameModule(mode).generateQuestion(level, random, topic);
   }
 
   private publicState(session: EnglishSession) {
-    const { answer: _answer, hint: _hint, ...question } = session.question;
+    const { answer: _answer, hint: _hint, explanation: _explanation, ...question } = session.question;
     return {
       id: session.id,
       kind: session.kind,
       level: session.level,
+      topic: session.topic,
+      challengeId: session.challengeId,
       dailyDate: session.dailyDate,
       status: session.status,
       score: session.score,
@@ -262,7 +291,7 @@ export class EnglishGameService {
       correctAnswers: session.correctAnswers,
       answerCount: session.answerCount,
       questionIndex: session.questionIndex,
-      questionTotal: session.kind === 'daily' ? DAILY_QUESTION_COUNT : null,
+      questionTotal: session.kind !== 'time-attack' ? DAILY_QUESTION_COUNT : null,
       endsAt: session.endsAt,
       serverNow: Date.now(),
       question,
@@ -272,6 +301,10 @@ export class EnglishGameService {
       usedItems: session.usedItems,
       hiddenOptions: session.hiddenOptions,
       dailyStreak: session.dailyStreak,
+      dailyGoalMet: session.dailyGoalMet,
+      weeklyDays: session.weeklyDays,
+      completedAt: session.completedAt,
+      review: session.status === 'finished' ? session.review : undefined,
     };
   }
 
@@ -295,9 +328,15 @@ export class EnglishGameService {
     return feedback;
   }
 
-  private async finish(session: EnglishSession) {
+  private async finish(session: EnglishSession, includeCurrent = true) {
     if (session.status === 'finished') return;
+    session.review ??= [];
+    if (includeCurrent && !session.review.some(item => item.number === session.questionIndex + 1)) {
+      session.review.push(makeReviewItem(session.question, session.questionIndex, [...session.guesses], session.guesses.length ? 'wrong' : 'unanswered'));
+    }
     const user = await this.prisma.user.findUnique({ where: { id: session.userId }, select: { name: true } });
+    session.completedAt = Math.min(Date.now(), session.endsAt);
+    session.dailyGoalMet = session.kind === 'daily' && session.questionIndex >= 10 && session.correctAnswers >= 8;
     const date = session.dailyDate ?? utcDate();
     const previousDay = new Date(date + 'T00:00:00.000Z');
     previousDay.setUTCDate(previousDay.getUTCDate() - 1);
@@ -309,6 +348,9 @@ export class EnglishGameService {
       local session = cjson.decode(ARGV[1])
       session.status = 'finished'
       if session.kind == 'daily' then
+        if session.dailyGoalMet then redis.call('sadd', KEYS[8], ARGV[3]) end
+        redis.call('expire', KEYS[8], 34560000)
+        session.weeklyDays = redis.call('scard', KEYS[8])
         local lastDate = redis.call('hget', KEYS[6], 'date')
         local count = tonumber(redis.call('hget', KEYS[6], 'count')) or 0
         if lastDate == ARGV[4] then count = count + 1
@@ -317,7 +359,15 @@ export class EnglishGameService {
         redis.call('hset', KEYS[6], 'date', ARGV[3], 'count', count)
         redis.call('set', KEYS[5], '1', 'EX', 34560000)
       end
-      if session.score > 0 then
+      if session.kind == 'challenge' then
+        local elapsed = session.completedAt - session.startedAt
+        redis.call('zadd', KEYS[9], session.correctAnswers * 1000000 + (150000 - elapsed), ARGV[2])
+        redis.call('expire', KEYS[9], 604800)
+      end
+      if session.kind == 'lesson' and session.questionIndex >= 10 and session.correctAnswers >= 8 then
+        redis.call('sadd', KEYS[10], session.level)
+      end
+      if session.score > 0 and (session.kind == 'daily' or session.kind == 'time-attack') then
         redis.call('hset', KEYS[7], ARGV[2], ARGV[5])
         for i = 2, 4 do redis.call('zincrby', KEYS[i], session.score, ARGV[2]) end
         redis.call('expire', KEYS[2], 864000)
@@ -325,11 +375,11 @@ export class EnglishGameService {
       end
       local encoded = string.gsub(ARGV[1], '"status":"playing"', '"status":"finished"', 1)
       if session.kind == 'daily' then
-        encoded = string.sub(encoded, 1, -2) .. ',"dailyStreak":' .. session.dailyStreak .. '}'
+        encoded = string.sub(encoded, 1, -2) .. ',"dailyStreak":' .. session.dailyStreak .. ',"weeklyDays":' .. session.weeklyDays .. '}'
       end
       redis.call('set', KEYS[1], encoded, 'EX', ARGV[6])
       return encoded
-    `, 7,
+    `, 10,
       'english:session:' + session.id,
       'english:leaderboard:today:' + date,
       'english:leaderboard:week:' + weekStart(new Date(date + 'T00:00:00.000Z').getTime()),
@@ -337,11 +387,62 @@ export class EnglishGameService {
       this.dailyCompletedKey(session.userId, date),
       'english:daily:streak:' + session.userId,
       'english:players',
+      `english:daily:week:${session.userId}:${weekStart(new Date(date + 'T00:00:00Z').getTime())}`,
+      `english:challenge:ranking:${session.challengeId ?? 'none'}`,
+      `english:learning:${session.userId}:${session.topic ?? 'all'}`,
       JSON.stringify(session), String(session.userId), date,
       previousDay.toISOString().slice(0, 10), user?.name ?? String(session.userId),
       String(SESSION_TTL_SECONDS),
     );
     Object.assign(session, JSON.parse(result as string) as EnglishSession);
+  }
+
+  async progress(userId: number) {
+    const days = await this.redis.client.scard(`english:daily:week:${userId}:${weekStart()}`);
+    const lessons = Object.fromEntries(await Promise.all(TOPICS.map(async topic =>
+      [topic, await this.redis.client.smembers(`english:learning:${userId}:${topic}`)])));
+    return { week: weekStart(), days, badge: days >= 7 ? 'Vàng' : days >= 5 ? 'Bạc' : days >= 3 ? 'Đồng' : null, lessons };
+  }
+
+  async createChallenge(userId: number, level: CefrLevel, topic?: Topic) {
+    if (!LEVELS.includes(level) || (topic !== undefined && !TOPICS.includes(topic))) throw new BadRequestException('Cấp độ hoặc chủ đề không hợp lệ.');
+    const challenge: Challenge = { id: randomUUID(), seed: randomUUID(), level, topic, expiresAt: Date.now() + SESSION_TTL_SECONDS * 1000 };
+    await this.redis.client.set(`english:challenge:${challenge.id}`, JSON.stringify(challenge), 'EX', SESSION_TTL_SECONDS);
+    return this.joinChallenge(userId, challenge.id);
+  }
+
+  private async requireChallenge(id: string): Promise<Challenge> {
+    const value = await this.redis.client.get(`english:challenge:${id}`);
+    if (!value) throw new NotFoundException('Link thách đấu không tồn tại hoặc đã hết hạn 7 ngày.');
+    const challenge = JSON.parse(value) as Challenge;
+    if (Date.now() >= challenge.expiresAt) throw new NotFoundException('Link đã hết hạn.');
+    return challenge;
+  }
+
+  async challengeInfo(userId: number, id: string) {
+    const challenge = await this.requireChallenge(id);
+    const scores = await this.redis.client.zrevrange(`english:challenge:ranking:${id}`, 0, 49, 'WITHSCORES');
+    const ranking = await Promise.all(Array.from({ length: scores.length / 2 }, async (_, index) => {
+      const participantId = scores[index * 2];
+      const score = Number(scores[index * 2 + 1]);
+      const correct = Math.floor(score / 1000000);
+      const user = await this.prisma.user.findUnique({ where: { id: Number(participantId) }, select: { name: true } });
+      return { userId: Number(participantId), name: user?.name ?? 'Người chơi', correct, elapsedMs: 150000 - (score - correct * 1000000) };
+    }));
+    return { id, level: challenge.level, topic: challenge.topic, expiresAt: challenge.expiresAt, ranking,
+      sessionId: await this.redis.client.get(`english:challenge:attempt:${id}:${userId}`) };
+  }
+
+  async joinChallenge(userId: number, id: string) {
+    return this.withSessionLock(`challenge:${id}:${userId}`, async () => {
+      const challenge = await this.requireChallenge(id);
+      const key = `english:challenge:attempt:${id}:${userId}`;
+      const existing = await this.redis.client.get(key);
+      if (existing) return this.getState(userId, existing);
+      const state = await this.start(userId, 'challenge', challenge.level, challenge.topic, challenge);
+      await this.redis.client.set(key, state.id, 'PX', Math.max(1, challenge.expiresAt - Date.now()));
+      return state;
+    });
   }
 
   private async requireSession(userId: number, id: string) {

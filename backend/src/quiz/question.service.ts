@@ -10,7 +10,7 @@ export type Lang = 'EN' | 'JA';
 export type JapaneseLevel = 'N5' | 'N4' | 'N3' | 'N2' | 'N1';
 export type QuizLevel = EnglishLevel | JapaneseLevel;
 export type QuizMode = EnglishMode | 'JLPT';
-export interface Question { text: string; options: string[]; correctIndex: number }
+export interface Question { text: string; options: string[]; correctIndex: number; explanation?: string }
 
 const shuffle = <T,>(a: T[]) => {
   const r = [...a];
@@ -46,6 +46,7 @@ export class QuestionService {
           text: `Chọn đáp án phù hợp nhất để hoàn thành câu:\n${item.sentence}`,
           options,
           correctIndex: options.indexOf(item.answer),
+          explanation: `${item.explanation} Câu hoàn chỉnh: ${item.sentence.replace('____', item.answer)}`,
         };
       });
     }
@@ -58,6 +59,7 @@ export class QuestionService {
         text: `Từ “${item.word}” có nghĩa gần nhất là gì?`,
         options,
         correctIndex: options.indexOf(item.meaning),
+        explanation: `“${item.word}” có nghĩa là “${item.meaning}”.`,
       };
     });
   }
@@ -94,6 +96,9 @@ export class QuestionService {
           : `「${card.kanji}」đọc là gì? (kun-yomi)`,
         options,
         correctIndex: options.indexOf(correct),
+        explanation: mode === 'meaning'
+          ? `Kanji 「${card.kanji}」 có nghĩa: ${(card.meanings as string[]).join(', ')}.`
+          : `Một cách đọc kun-yomi của 「${card.kanji}」 là “${correct}”. Các cách đọc trong dữ liệu: ${(card.kunReadings as string[]).join(', ')}.`,
       });
     }
     if (out.length < n) throw new Error(`Không đủ câu hỏi có đáp án hợp lệ cho ${level}.`);

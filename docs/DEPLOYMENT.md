@@ -93,6 +93,15 @@ Migration mới chỉ thêm `Match.roomId` nullable và unique index, không xó
 
 ## Giới hạn và phục hồi
 
+- Tính năng ôn câu sai thêm cột JSONB nullable `MatchPlayer.review` bằng migration `20261118000000_match_review`. Render áp dụng qua lệnh start hiện có; cần deploy backend trước hoặc cùng frontend. Không xóa lịch sử cũ, nhưng trận/phiên trước khi có tính năng không thể tái tạo câu trả lời chưa từng được lưu.
+- Phiên cá nhân và câu sai giữ trong Redis 7 ngày, chỉ trả phần ôn khi lượt của chính người gọi đã kết thúc. Phòng đấu lưu phần ôn riêng từng người trong PostgreSQL và trả qua lịch sử của chính tài khoản đó. Luyện lại trên frontend không gửi điểm mới hoặc thay đổi Daily/streak.
+- Nâng cấp gameplay thêm migration `20261118010000_game_metrics`: `Match.duel`, `MatchPlayer.correct`, `MatchPlayer.responseMs`. Deploy backend và chạy `prisma migrate deploy` trước frontend. Không cần thêm biến môi trường hoặc dịch vụ mới; giữ PostgreSQL/Redis hiện có.
+- Bật lưu bền dữ liệu ở Redis nhà cung cấp và không xóa key: tiến độ chủ đề, ngày đạt Daily và link thách đấu dùng Redis. Link thách đấu và lượt cá nhân có TTL 7 ngày; lượt thách đấu không được chơi lại bằng cách tải trang. Mỗi tài khoản có một lượt trên mỗi link.
+- Kiểm tra sau deploy: hai tài khoản vào 1v1 (người thứ ba bị từ chối), chơi 10 câu và mở lại lịch sử; chọn từng chủ đề/A1–C2; Daily đủ 10 và đúng 8 câu; chia sẻ link thách đấu cho tài khoản thứ hai, tải lại giữa lượt; kiểm tra các dạng xếp câu/sửa lỗi/ghép nghĩa và ôn câu sai.
+
+- Frontend có nút **Cài ứng dụng** và manifest PWA. Sau khi deploy bản mới, Chrome/Edge có thể mở hộp cài đặt từ nút; nếu chưa được trình duyệt cho phép, nút hiển thị hướng dẫn cài từ menu. iPhone/iPad dùng Safari → Chia sẻ → Thêm vào MH chính. Cần kiểm thử cài thật trên thiết bị sau deploy.
+- PWA vẫn cần Internet để đăng nhập và chơi. Service worker chỉ lưu trang hướng dẫn mất kết nối, không lưu API, token hoặc kết quả chơi. Bản HTML/JS vẫn lấy qua mạng để tránh giữ giao diện cũ sau khi cập nhật.
+
 - Render Free có thể ngủ; lần truy cập sau thời gian không hoạt động có thể chờ khoảng một phút. Frontend chờ kết nối tối đa 90 giây và Socket.IO tự kết nối lại. Đây không phải cam kết chạy 24/7 không gián đoạn.
 - Chỉ chạy **một backend instance**. Khóa Redis ngăn ghi đè đồng thời nhưng chưa thay thế Socket.IO adapter và cơ chế sở hữu timer khi chạy nhiều instance.
 - Mỗi phòng Redis hết hạn sau 24 giờ không được cập nhật. Đóng tab không xóa ngay phòng. Điểm/lựa chọn đã được xác nhận mới được bảo đảm lưu; đáp án chưa nhận được xác nhận cần kiểm tra lại sau kết nối.

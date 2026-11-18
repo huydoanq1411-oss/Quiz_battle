@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { isAxiosError } from 'axios';
 import api from '../api';
@@ -12,13 +12,15 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
   const [err, setErr] = useState('');
   const dispatch = useDispatch();
   const nav = useNavigate();
+  const location = useLocation();
 
   const submit = async () => {
     try {
       const body = mode === 'login' ? { email, password } : { email, name, password };
       const { data } = await api.post(`/auth/${mode}`, body);
       dispatch(login(data));
-      nav('/');
+      const from: unknown = location.state?.from;
+      nav(typeof from === 'string' && from.startsWith('/') && !from.startsWith('//') ? from : '/');
     } catch (error: unknown) {
       const message = isAxiosError<{ message?: string | string[] }>(error)
         ? error.response?.data?.message ?? (error.request ? 'Không kết nối được máy chủ. Hãy kiểm tra backend và thử lại.' : undefined)
@@ -31,7 +33,7 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
     <div className="auth-layout">
       <aside className="auth-art">
         <Link className="brand auth-brand" to="/">
-          <span className="brand-mark">Q</span>
+          <img className="brand-mark" src="/quiz-battle-avatar.png" width="32" height="32" alt="" />
           <span>QUIZ<span className="brand-light">/BATTLE</span></span>
         </Link>
         <div className="auth-art-copy">
@@ -57,8 +59,8 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
           </form>
           <p className="auth-switch">
             {mode === 'login'
-              ? <>Chưa có tài khoản? <Link to="/register">Đăng ký</Link></>
-              : <>Đã có tài khoản? <Link to="/login">Đăng nhập</Link></>}
+              ? <>Chưa có tài khoản? <Link to="/register" state={location.state}>Đăng ký</Link></>
+              : <>Đã có tài khoản? <Link to="/login" state={location.state}>Đăng nhập</Link></>}
           </p>
         </div>
       </section>

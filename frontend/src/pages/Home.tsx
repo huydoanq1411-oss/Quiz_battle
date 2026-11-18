@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getSocket } from '../socket';
+import api from '../api';
 
 type EnglishLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
 
@@ -20,6 +21,7 @@ export default function Home() {
   const [mode, setMode] = useState<'VOCAB' | 'IELTS'>('VOCAB');
   const [level, setLevel] = useState<EnglishLevel>('A1');
   const [total, setTotal] = useState(5);
+  const [duel, setDuel] = useState(true);
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -28,7 +30,7 @@ export default function Home() {
     if (busy) return;
     setBusy(true);
     setError('');
-    getSocket().timeout(90_000).emit(event, event === 'room:create' ? { lang: 'EN', total, mode, level } : { code: code.trim().toUpperCase() }, (failure: Error | null, res?: RoomResponse) => {
+    getSocket().timeout(90_000).emit(event, event === 'room:create' ? { lang: 'EN', total, mode, level, duel } : { code: code.trim().toUpperCase() }, (failure: Error | null, res?: RoomResponse) => {
       setBusy(false);
       if (failure || res?.error || !res?.code) {
         setError(res?.error ?? 'Chưa kết nối được. Lần mở đầu có thể mất khoảng một phút, vui lòng thử lại.');
@@ -37,6 +39,14 @@ export default function Home() {
   };
   const create = () => requestRoom('room:create');
   const join = () => requestRoom('room:join');
+  const challenge = async () => {
+    setBusy(true); setError('');
+    try {
+      const { data } = await api.post<{ challengeId: string }>('/english-games/challenges', { level });
+      nav(`/challenges/${data.challengeId}`);
+    } catch { setError('Chưa tạo được thách đấu. Vui lòng thử lại.'); }
+    finally { setBusy(false); }
+  };
 
   return (
     <div className="page page-home">
@@ -52,8 +62,12 @@ export default function Home() {
       </section>
 
       <section className="challenge-grid" aria-label="Chế độ thi đấu cá nhân">
-        <Link to="/games/time-attack" className="challenge-link challenge-time"><span>60 GIÂY / STREAK</span><strong>Time Attack</strong><small>Đua tốc độ cùng 5 dạng câu hỏi.</small><b aria-hidden="true">↗</b></Link>
+        <Link to="/games/time-attack" className="challenge-link challenge-time"><span>60 GIÂY / STREAK</span><strong>Time Attack</strong><small>Đua tốc độ cùng 8 dạng câu hỏi.</small><b aria-hidden="true">↗</b></Link>
         <Link to="/games/daily" className="challenge-link challenge-daily"><span>10 CÂU / MỖI NGÀY</span><strong>Daily Challenge</strong><small>Cùng bộ câu hỏi, thử thách toàn cầu.</small><b aria-hidden="true">↗</b></Link>
+      </section>
+      <section className="challenge-grid" aria-label="Học và thách đấu">
+        <Link to="/learn" className="challenge-link"><span>DU LỊCH · CÔNG VIỆC · ĐỜI SỐNG</span><strong>Lộ trình chủ đề</strong><small>Chọn cấp A1–C2, học 10 câu và ôn lỗi sai.</small><b aria-hidden="true">↗</b></Link>
+        <div className="challenge-link"><span>CHƠI KHÁC THỜI ĐIỂM</span><strong>Thách đấu qua link</strong><small>10 câu · 150 giây · dùng cấp độ chọn bên dưới. Đồng hồ chạy ngay khi tạo.</small><button className="button button-ink" disabled={busy} onClick={() => void challenge()}>Tạo thách đấu</button></div>
       </section>
       <section className="home-grid" aria-label="Bắt đầu trận đấu">
         <article className="play-panel create-panel">
@@ -62,6 +76,7 @@ export default function Home() {
             <span className="panel-symbol" aria-hidden="true">↗</span>
           </div>
           <h2>Tạo phòng</h2>
+          <div className="segmented-control" role="group" aria-label="Kiểu trận"><button className={duel ? 'segment is-active' : 'segment'} aria-pressed={duel} onClick={() => setDuel(true)}>1v1 · 10 câu</button><button className={!duel ? 'segment is-active' : 'segment'} aria-pressed={!duel} onClick={() => setDuel(false)}>Nhiều người</button></div>
           <p className="panel-copy">Chọn chủ đề, gọi hội bạn và bắt đầu cuộc đua kiến thức.</p>
           <div className="field-group">
             <span className="field-label">DẠNG BÀI</span>
@@ -83,8 +98,8 @@ export default function Home() {
           <label className="field-group" htmlFor="question-count">
             <span className="field-label">SỐ CÂU HỎI</span>
             <span className="input-wrap number-wrap">
-              <input id="question-count" type="number" min={3} max={20} value={total} onChange={(e) => setTotal(Math.min(20, Math.max(3, Number(e.target.value))))} />
-              <span>03 — 20 câu</span>
+              <input id="question-count" type="number" min={3} max={20} disabled={duel} value={duel ? 10 : total} onChange={(e) => setTotal(Math.min(20, Math.max(3, Number(e.target.value))))} />
+              <span>{duel ? 'Đúng hai người' : '03 — 20 câu'}</span>
             </span>
           </label>
           <button className="button button-primary button-wide" onClick={create} disabled={busy}>Tạo phòng mới <span aria-hidden="true">→</span></button>

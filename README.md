@@ -44,6 +44,12 @@ Quiz Battle là trò chơi thi đấu giúp học tiếng Anh với các cấp �
 - **Tính điểm**: 100 điểm cho mỗi câu đúng, cộng tối đa 50 điểm thưởng tốc độ.
 - **Bảng xếp hạng**: dùng Redis sorted set toàn cục cho hôm nay, tuần này và mọi lúc.
 - **Lịch sử**: xem danh sách trận đã chơi và chi tiết từng trận.
+- **Ôn câu sai**: xem lựa chọn đã gửi, đáp án đúng và giải thích sau lượt chơi; luyện lại không tính điểm. Phòng multiplayer lưu phần ôn riêng trong lịch sử; phiên cá nhân giữ trong Redis 7 ngày.
+- **Đấu bạn bè 1v1**: hai tài khoản, 10 câu chung; ưu tiên số câu đúng, sau đó tổng thời gian. Câu bỏ trống tính 15 giây. Lịch sử lưu độ chính xác và thời gian.
+- **Lộ trình chủ đề**: Du lịch, Công việc, Đời sống × A1–C2; 72 từ chia theo chủ đề/cấp độ. Mỗi bài 10 câu, tối đa 10 phút; đúng ít nhất 8 câu và hoàn thành bài để đánh dấu đã đạt.
+- **Daily có mục tiêu**: hoàn thành đủ 10 câu và đúng ít nhất 8 câu; huy hiệu Đồng/Bạc/Vàng khi đạt 3/5/7 ngày trong tuần UTC bắt đầu thứ Hai. Daily không dùng vật phẩm.
+- **Thách đấu bất đồng bộ**: tạo và chơi lượt 150 giây, sau đó sao chép link; bạn bè chơi sau trên cùng đề. Link có hạn 7 ngày, mỗi tài khoản một lượt; kết quả riêng cho link, không cộng bảng điểm toàn cục. Cần đăng nhập; quay lại đúng link sau đăng nhập/đăng ký.
+- **Ba dạng mới trong Time Attack/thách đấu**: xếp câu (bấm từ hoặc gõ cả câu), sửa câu sai ngữ pháp (nhập câu hoàn chỉnh), ghép từ với nghĩa (chọn nghĩa cho từng từ). Khi ôn câu ghép nghĩa, nhập ba số theo thứ tự A-B-C, ví dụ `2-3-1`. Có giải thích và ôn lại lỗi sai.
 - **Chống gian lận cơ bản**: máy chủ xác thực câu trả lời, điểm số và thời hạn; việc chuyển tab được ghi nhận.
 - **Docker**: khởi động toàn bộ hệ thống bằng một lệnh.
 
@@ -139,7 +145,8 @@ Máy chủ tính thời gian và điểm số. Giao diện hiển thị hạn ch
 | Điền vào chỗ trống | Ngữ pháp | Sẵn sàng |
 | Nghe và chọn đáp án | Nghe bằng chức năng đọc tiếng Anh của trình duyệt | Sẵn sàng |
 | Wordle | Từ vựng và chính tả | Sẵn sàng |
-| Ghép tranh, Hangman, sửa lỗi, xếp câu, nói, đọc hiểu, nối từ, ô chữ, Boggle | Tổng hợp | Đã tạo khung, còn TODO |
+| Xếp câu, sửa lỗi ngữ pháp, ghép từ với nghĩa | Ngữ pháp / Từ vựng | Có trong Time Attack và thách đấu |
+| Ghép tranh, Hangman, nói, đọc hiểu, nối từ, ô chữ, Boggle | Tổng hợp | Đã tạo khung, còn TODO |
 
 Các trò chơi cá nhân dùng chung interface module trong `backend/src/quiz/english-game-modes.ts`: mỗi module khai báo ID và kỹ năng, tạo câu hỏi theo cấp CEFR cùng bộ sinh số ngẫu nhiên được truyền vào, sau đó kiểm tra câu trả lời. Time Attack chọn các module đã hoàn thiện. Daily Challenge chọn module và câu hỏi có thể tái tạo từ seed theo ngày UTC.
 
@@ -177,7 +184,7 @@ Tất cả route REST đều có tiền tố `/api`. Route yêu cầu xác thự
 | GET | `/api/matches/:id` | Có | Chi tiết trận và thứ hạng |
 | POST | `/api/english-games/start` | Có | Bắt đầu hoặc tiếp tục `{kind: time-attack\|daily, level: A1..C2}` |
 | GET | `/api/english-games/:id` | Có | Tiếp tục phiên chơi cá nhân được lưu trong Redis |
-| POST | `/api/english-games/:id/answer` | Có | Gửi câu trả lời; đáp án đúng không bao giờ được trả về |
+| POST | `/api/english-games/:id/answer` | Có | Gửi `{questionId, answer}`; chỉ công bố phần ôn và giải thích sau khi lượt chơi kết thúc |
 | POST | `/api/english-games/:id/items` | Có | Dùng `fifty-fifty`, `extra-time` hoặc `hint` một lần mỗi lượt |
 | POST | `/api/english-games/:id/tab-hidden` | Có | Ghi nhận việc chuyển tab trong lượt chơi |
 | GET | `/api/english-games/leaderboard?scope=today\|week\|all` | Có | Top 10 toàn cục từ Redis sorted set |

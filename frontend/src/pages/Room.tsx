@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { getSocket } from '../socket';
 import type { RootState } from '../store';
 import { restored, reset, type GameState } from '../store/gameSlice';
+import WrongAnswerReview from '../WrongAnswerReview';
 
 function Countdown({ endsAt, serverNow, durationMs }: { endsAt: number; serverNow: number; durationMs: number }) {
   const [left, setLeft] = useState(() => Math.max(0, endsAt - serverNow));
@@ -104,6 +105,7 @@ export default function Room() {
             <h1>Sẵn sàng<br /><span>chưa?</span></h1>
             <p className="page-intro">Chia sẻ mã phòng với đồng đội để họ có thể tham gia.</p>
             <div className="room-code-display"><span>MÃ PHÒNG</span><strong>{code}</strong></div>
+            {game.duel && <p className="page-intro">1v1 · 10 câu chung. Cần đủ hai người để bắt đầu. Xếp hạng theo độ chính xác, sau đó tổng thời gian; bỏ trống tính 15 giây.</p>}
             <div className="lobby-settings"><span>{game.mode === 'IELTS' ? 'IELTS · Điền từ' : game.mode === 'JLPT' ? 'JLPT · Kanji' : 'English · Từ vựng'}</span><strong>{game.level}</strong></div>
             {isHost ? <button className="button button-primary" onClick={start} disabled={!connected || starting}>{starting ? 'Đang chuẩn bị…' : 'Bắt đầu trận'} <span aria-hidden="true">→</span></button> : <p className="waiting-note"><span className="live-dot" /> Đang đợi chủ phòng bắt đầu...</p>}
           </div>
@@ -125,9 +127,11 @@ export default function Room() {
         {connectionMessage && <p role="status" className="waiting-note">{connectionMessage}</p>}
         <section className="result-heading"><p className="eyebrow">TRẬN {code} / KẾT THÚC</p><h1>Cuộc chơi<br /><span>đã ngã ngũ.</span></h1><p className="page-intro">Một trận đấu hay được tạo nên bởi những đối thủ tuyệt vời.</p></section>
         <section className="ranking-list" aria-label="Bảng kết quả">
-          {game.ranking.map((player, index) => <article className={`ranking-row${index < 3 ? ` ranking-top ranking-top-${index + 1}` : ''}`} key={player.userId}><span className="ranking-person"><b className="rank-number">{String(index + 1).padStart(2, '0')}</b><span className="rank-avatar">{player.name?.charAt(0)?.toUpperCase()}</span><strong>{player.name}</strong>{index === 0 && <span className="leader-tag">WINNER</span>}</span><strong className="ranking-score">{player.score}<small> pts</small></strong></article>)}
+          {game.ranking.map((player, index) => <article className={`ranking-row${index < 3 ? ` ranking-top ranking-top-${index + 1}` : ''}`} key={player.userId}><span className="ranking-person"><b className="rank-number">{String(index + 1).padStart(2, '0')}</b><span className="rank-avatar">{player.name?.charAt(0)?.toUpperCase()}</span><strong>{player.name}</strong>{index === 0 && !(game.duel && game.ranking[1]?.rank === player.rank) && <span className="leader-tag">WINNER</span>}</span><strong className="ranking-score">{player.score}<small> pts</small></strong></article>)}
         </section>
+        {game.duel && <section className="game-finished"><h2>{game.ranking.length === 2 && game.ranking[0].rank === game.ranking[1].rank ? 'Hòa · Cùng độ chính xác và thời gian' : 'So sánh 1v1'}</h2>{game.ranking.map(player => <p key={player.userId}><strong>{player.name}</strong>: {player.correct}/10 câu đúng · {player.accuracy}% · {((player.responseMs ?? 0) / 1000).toFixed(1)} giây</p>)}</section>}
         <button className="button button-primary return-button" onClick={() => nav('/')}>Về sảnh chơi <span aria-hidden="true">→</span></button>
+        <WrongAnswerReview key={game.id} items={game.review} />
       </div>
     );
   }

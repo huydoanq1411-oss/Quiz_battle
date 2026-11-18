@@ -4,8 +4,9 @@ import { Server } from 'socket.io';
 import { PrismaService } from '../prisma/prisma.service';
 import { QuestionService, type Question, type Lang, type QuizLevel, type QuizMode } from './question.service';
 import { RoomRepository } from './room.repository';
+import type { ReviewItem } from './review';
 
-export interface Player { userId: number; name: string; socketId: string; score: number; connected: boolean }
+export interface Player { userId: number; name: string; socketId: string; score: number; connected: boolean; correct?: number; responseMs?: number }
 export interface Room {
   id: string;
   code: string; hostId: number; lang: Lang; mode: QuizMode; level: QuizLevel; total: number;
@@ -15,6 +16,9 @@ export interface Room {
   answers: Map<number, number>;
   endsAt: number;
   revision: number;
+  reviewByUser?: Record<string, ReviewItem[]>;
+  duel?: boolean;
+  responseByUser?: Record<string, number>;
 }
 
 const QUESTION_MS = 15000;
@@ -67,8 +71,12 @@ export class GameService implements OnApplicationBootstrap, OnModuleDestroy {
   }
 
   private ranking(room: Room) {
-    return [...room.players.values()].sort((a, b) => b.score - a.score || a.userId - b.userId)
-      .map((player, index) => ({ rank: index + 1, userId: player.userId, name: player.name, score: player.score }));
+    const compare = (a: Player, b: Player) => (room.duel
+      ? (b.correct ?? 0) - (a.correct ?? 0) || (a.responseMs ?? 0) - (b.responseMs ?? 0)
+      : b.score - a.score);
+    const players = [...room.players.values()].sort((a, b) => compare(a, b) || a.userId - b.userId);
+    return players.map((player, index) => ({ rank: room.duel ? players.findIndex(candidate => compare(candidate, player) === 0) + 1 : index + 1, userId: player.userId, name: player.name, score: player.score,
+        correct: player.correct ?? 0, accuracy: Math.round((player.correct ?? 0) / room.total * 100), responseMs: player.responseMs ?? 0 }));
   }
 
   publicState(room: Room, userId: number) {
@@ -78,6 +86,7 @@ export class GameService implements OnApplicationBootstrap, OnModuleDestroy {
       id: room.id, revision: room.revision, code: room.code,
       phase: room.status === 'finishing' ? 'reveal' : room.status === 'starting' ? 'lobby' : room.status,
       lang: room.lang, mode: room.mode, level: room.level,
+      duel: Boolean(room.duel),
       players: this.players(room),
       question: question ? {
         index: room.index, total: room.questions.length, text: question.text,
@@ -88,6 +97,7 @@ export class GameService implements OnApplicationBootstrap, OnModuleDestroy {
       answered: [...room.answers.keys()],
       correctIndex: question && (reveal || room.status === 'finishing') ? question.correctIndex : null,
       ranking: room.status === 'ended' ? this.ranking(room) : [],
+      review: room.status === 'ended' && room.reviewByUser ? room.reviewByUser[userId] ?? [] : undefined,
     };
   }
 
@@ -97,11 +107,11 @@ export class GameService implements OnApplicationBootstrap, OnModuleDestroy {
     }
   }
 
-  async create(user: { id: number; name: string }, socketId: string, lang: Lang, total: number, mode: QuizMode, level: QuizLevel) {
+  async create(user: { id: number; name: string }, socketId: string, lang: Lang, total: number, mode: QuizMode, level: QuizLevel, duel = false) {
     for (let attempt = 0; attempt < 10; attempt++) {
       const room: Room = {
         id: randomUUID(), code: Array.from({ length: 5 }, () => ALPHABET[randomInt(ALPHABET.length)]).join(''),
-        hostId: user.id, lang, mode, level, total: Math.min(Math.max(Math.trunc(total), 3), 20),
+        hostId: user.id, lang, mode, level, duel, total: duel ? 10 : Math.min(Math.max(Math.trunc(total), 3), 20),
         status: 'lobby', players: new Map(), questions: [], index: -1,
         answers: new Map(), endsAt: 0, revision: 1,
       };
@@ -119,7 +129,8 @@ export class GameService implements OnApplicationBootstrap, OnModuleDestroy {
       if (!room) return { error: 'Không tìm thấy phòng hoặc phòng đã hết hạn.' };
       if (room.status !== 'lobby' && !room.players.has(user.id)) return { error: 'Phòng đã bắt đầu' };
       const old = room.players.get(user.id);
-      room.players.set(user.id, { userId: user.id, name: user.name, socketId, score: old?.score ?? 0, connected: true });
+      if (room.duel && !old && room.players.size >= 2) return { error: 'Phòng 1v1 đã đủ hai người.' };
+      room.players.set(user.id, { ...old, userId: user.id, name: user.name, socketId, score: old?.score ?? 0, connected: true });
       if (room.status === 'lobby' && !room.players.get(room.hostId)?.connected) room.hostId = user.id;
       room.revision++;
       return { room };
@@ -154,6 +165,7 @@ export class GameService implements OnApplicationBootstrap, OnModuleDestroy {
   async start(code: string, userId: number) {
     const result = await this.rooms.update(code, async room => {
       if (!room || room.hostId !== userId || room.status !== 'lobby') return { error: 'Không thể bắt đầu' };
+      if (room.duel && [...room.players.values()].filter(player => player.connected).length !== 2) return { error: 'Cần hai người đang kết nối để bắt đầu 1v1.' };
       room.questions = await this.questions.get(room.lang, room.total, room.mode, room.level);
       if (!room.questions.length) return { error: 'Chưa có câu hỏi cho cấp độ này.' };
       room.status = 'starting';
@@ -177,11 +189,15 @@ export class GameService implements OnApplicationBootstrap, OnModuleDestroy {
       const question = room.questions[room.index];
       if (!Number.isInteger(choice) || choice < 0 || choice >= question.options.length) return { error: 'Đáp án không hợp lệ.' };
       room.answers.set(userId, choice);
+      room.responseByUser ??= {};
+      room.responseByUser[userId] = Math.max(0, Math.min(QUESTION_MS, QUESTION_MS - (room.endsAt - Date.now())));
       if (choice === question.correctIndex) {
+        player.correct = (player.correct ?? 0) + 1;
         player.score += 100 + Math.max(0, Math.round(50 * (room.endsAt - Date.now()) / QUESTION_MS));
       }
       const online = [...room.players.values()].filter(player => player.connected);
       if (online.length && online.every(player => room.answers.has(player.userId))) {
+        this.collectMistakes(room);
         room.status = 'reveal';
         room.endsAt = Date.now() + REVEAL_MS;
       }
@@ -203,6 +219,29 @@ export class GameService implements OnApplicationBootstrap, OnModuleDestroy {
     this.timers.set(room.code, setTimeout(() => { void this.advance(room.code); }, Math.max(0, room.endsAt - Date.now())));
   }
 
+  private collectMistakes(room: Room) {
+    const question = room.questions[room.index];
+    if (!question) return;
+    room.reviewByUser ??= {};
+    for (const player of room.players.values()) {
+      const choice = room.answers.get(player.userId);
+      // Called once per question on transition to reveal, including disconnects.
+      player.responseMs = (player.responseMs ?? 0) + (room.responseByUser?.[player.userId] ?? QUESTION_MS);
+      if (choice === question.correctIndex) continue;
+      const review = room.reviewByUser[player.userId] ??= [];
+      if (review.some(item => item.number === room.index + 1)) continue;
+      const correctAnswer = question.options[question.correctIndex];
+      review.push({
+        id: `${room.id}:${room.index}`, number: room.index + 1, mode: 'choice',
+        skill: room.lang === 'JA' ? 'Kanji' : room.mode === 'IELTS' ? 'Ngữ pháp' : 'Từ vựng',
+        prompt: question.text, options: question.options,
+        submittedAnswers: choice === undefined ? [] : [question.options[choice]], correctAnswer,
+        explanation: question.explanation ?? `Đáp án cần ghi nhớ: “${correctAnswer}”.`,
+        reason: choice === undefined ? 'unanswered' : 'wrong',
+      });
+    }
+  }
+
   private async advance(code: string) {
     if (this.stopped) return;
     try {
@@ -215,12 +254,13 @@ export class GameService implements OnApplicationBootstrap, OnModuleDestroy {
           await this.prisma.match.upsert({
             where: { roomId: room.id }, update: {},
             create: {
-              roomId: room.id, code: room.code, language: room.lang, totalQuestions: room.questions.length,
-              players: { create: ranking.map(player => ({ userId: player.userId, score: player.score, rank: player.rank })) },
+              roomId: room.id, code: room.code, language: room.lang, totalQuestions: room.questions.length, duel: room.duel ?? false,
+              players: { create: ranking.map(player => ({ userId: player.userId, score: player.score, rank: player.rank, correct: player.correct, responseMs: player.responseMs, review: JSON.parse(JSON.stringify(room.reviewByUser?.[player.userId] ?? [])) })) },
             },
           });
           room.status = 'ended';
         } else if (room.status === 'playing') {
+          this.collectMistakes(room);
           room.status = 'reveal';
           room.endsAt = Date.now() + REVEAL_MS;
         } else if (room.status === 'reveal' && room.index + 1 >= room.questions.length) {
@@ -229,6 +269,7 @@ export class GameService implements OnApplicationBootstrap, OnModuleDestroy {
         } else {
           room.index++;
           room.answers.clear();
+          room.responseByUser = {};
           room.status = 'playing';
           room.endsAt = Date.now() + QUESTION_MS;
         }

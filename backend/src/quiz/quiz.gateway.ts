@@ -51,7 +51,7 @@ export class QuizGateway implements OnGatewayInit, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('room:create')
-  async create(@ConnectedSocket() c: Socket, @MessageBody() b: { lang: string; total: number; mode?: string; level?: string }) {
+  async create(@ConnectedSocket() c: Socket, @MessageBody() b: { lang: string; total: number; mode?: string; level?: string; duel?: boolean }) {
     return this.respond(async () => {
       if (!b || typeof b !== 'object') return { error: 'Thông tin phòng không hợp lệ.' };
       const lang = b.lang === 'JA' ? 'JA' : 'EN';
@@ -60,7 +60,7 @@ export class QuizGateway implements OnGatewayInit, OnGatewayDisconnect {
       const defaultLevel = lang === 'JA' ? 'N5' : 'A1';
       const level = (availableLevels.includes(b.level ?? '') ? b.level : defaultLevel) as QuizLevel;
       const total = Number(b.total);
-      const room = await this.game.create(c.data.user, c.id, lang, Number.isFinite(total) ? total : 10, mode, level);
+      const room = await this.game.create(c.data.user, c.id, lang, Number.isFinite(total) ? total : 10, mode, level, b.duel === true);
       await c.join(room.code);
       this.game.broadcastPlayers(room);
       return { ok: true, code: room.code };
