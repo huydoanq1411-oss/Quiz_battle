@@ -20,6 +20,8 @@ const rows: Record<CefrLevel, Row[]> = {
     ['That is ____ car.', 'her', 'she', 'hers', 'herself', 'Tính từ sở hữu her đứng trước danh từ car.'],
     ['We ____ at home yesterday.', 'were', 'was', 'are', 'is', 'Quá khứ của be với we là were.'],
     ['Look! The baby ____.', 'is sleeping', 'sleep', 'sleeps', 'are sleeping', 'Look báo hiệu hành động đang diễn ra: is + V-ing.'],
+    ['My sister ____ two languages.', 'speaks', 'speak', 'speaking', 'is speak', 'Chủ ngữ số ít ở hiện tại đơn dùng động từ thêm -s.'],
+    ['We go to school ____ bus.', 'by', 'in', 'on', 'at', 'Dùng by với phương tiện di chuyển như by bus, không dùng giới từ chỉ vị trí.'],
   ],
   A2: [
     ['I ____ my homework before dinner yesterday.', 'finished', 'finish', 'finishes', 'finishing', 'Yesterday yêu cầu quá khứ đơn.'],
@@ -38,6 +40,8 @@ const rows: Record<CefrLevel, Row[]> = {
     ['We haven’t met him ____.', 'yet', 'already to', 'since for', 'ever to', 'Yet thường đứng cuối câu phủ định hiện tại hoàn thành.'],
     ['This cake was made ____ my sister.', 'by', 'from of', 'to', 'at', 'By giới thiệu người thực hiện trong câu bị động.'],
     ['If you heat ice, it ____.', 'melts', 'melt', 'melting', 'to melt', 'Điều kiện loại 0 dùng hiện tại đơn; it đi với melts.'],
+    ['I am looking ____ my keys.', 'for', 'at', 'on', 'to', 'Look for nghĩa là tìm kiếm thứ gì đó.'],
+    ['She was born ____ 2004.', 'in', 'on', 'at', 'by', 'Dùng in với năm để chỉ thời điểm một sự việc xảy ra.'],
   ],
   B1: [
     ['If I had more time, I ____ a language course.', 'would take', 'will took', 'would took', 'had take', 'Điều kiện loại 2 dùng would + động từ nguyên mẫu.'],
@@ -56,6 +60,8 @@ const rows: Record<CefrLevel, Row[]> = {
     ['You won’t pass unless you ____.', 'study', 'will studies', 'studying', 'studied to', 'Mệnh đề unless nói về tương lai dùng hiện tại đơn.'],
     ['She asked ____ I could help.', 'whether', 'unless', 'despite', 'during', 'Whether mở đầu câu hỏi gián tiếp có/không.'],
     ['He speaks English ____ than I do.', 'more fluently', 'most fluently', 'fluent', 'more fluent', 'So sánh hơn của trạng từ fluently là more fluently.'],
+    ['The manager asked us ____ the report by Friday.', 'to finish', 'finishing', 'finish', 'finished', 'Ask someone to do something dùng to + động từ nguyên mẫu.'],
+    ['She is responsible ____ organising the event.', 'for', 'to', 'at', 'with', 'Responsible for là cụm cố định, theo sau bởi danh từ hoặc V-ing.'],
   ],
   B2: [
     ['If she had studied, she ____ the exam.', 'would have passed', 'would passed', 'will have pass', 'had passing', 'Điều kiện loại 3: would have + V3.'],
@@ -74,6 +80,8 @@ const rows: Record<CefrLevel, Row[]> = {
     ['Had I known, I ____ you.', 'would have warned', 'will warned', 'would warn have', 'had warning', 'Had I known là đảo ngữ điều kiện loại 3.'],
     ['The job requires ____ attention to detail.', 'paying', 'pay', 'to paying', 'paid to', 'Require theo sau bởi danh động từ khi mô tả một hoạt động cần thiết.'],
     ['He acted as if he ____ the owner.', 'were', 'be', 'will be', 'being', 'As if dùng were cho tình huống giả định trái thực tế.'],
+    ['The problem could have been avoided if we ____ earlier.', 'had acted', 'acted', 'would act', 'have acted', 'Điều kiện loại 3 dùng if + had + quá khứ phân từ.'],
+    ['She suggested ____ the meeting until Monday.', 'postponing', 'to postpone', 'postpone', 'postponed', 'Suggest theo sau bởi V-ing khi đề xuất một hành động.'],
   ],
   C1: [
     ['Under no circumstances ____ the password.', 'should you disclose', 'you should disclose', 'should disclose you', 'you disclose should', 'Cụm phủ định đầu câu yêu cầu đảo trợ động từ.'],
@@ -92,6 +100,8 @@ const rows: Record<CefrLevel, Row[]> = {
     ['Scarcely had we sat down ____ the alarm rang.', 'when', 'than', 'then', 'that of', 'Cặp cấu trúc scarcely ... when.'],
     ['The proposal was rejected on the grounds ____ it was impractical.', 'that', 'what', 'which of', 'whose', 'On the grounds that mở đầu lý do.'],
     ['She objected to ____ treated unfairly.', 'being', 'be', 'been', 'to be', 'Object to + V-ing; being treated là dạng bị động.'],
+    ['The results were so inconsistent that they warranted ____ investigation.', 'further', 'fartherly', 'furthest', 'furthering', 'Further investigation nghĩa là cần điều tra thêm; further bổ nghĩa cho danh từ.'],
+    ['The article provides a framework within ____ the findings can be interpreted.', 'which', 'what', 'whereby of', 'whose', 'Within which là đại từ quan hệ phù hợp sau giới từ within.'],
   ],
   C2: [
     ['Not for a moment ____ his integrity.', 'did I doubt', 'I did doubt', 'did doubt I', 'I doubted did', 'Cụm phủ định đầu câu yêu cầu đảo trợ động từ.'],
@@ -110,6 +120,8 @@ const rows: Record<CefrLevel, Row[]> = {
     ['The argument, plausible ____ it sounds, is flawed.', 'though', 'despite', 'during', 'however of', 'Tính từ + though + chủ ngữ + động từ tạo mệnh đề nhượng bộ.'],
     ['Not until all the votes were counted ____ declared.', 'was the winner', 'the winner was', 'did the winner', 'has the winner', 'Not until yêu cầu đảo ngữ; bị động quá khứ dùng was + chủ ngữ + V3.'],
     ['The witness was adamant that she ____ never seen him before.', 'had', 'has to', 'having', 'have to', 'Sự việc xảy ra trước mốc quá khứ dùng had + V3.'],
+    ['Much of the evidence ____ been overlooked.', 'has', 'have', 'having', 'were', 'Evidence không đếm được nên dùng has trong hiện tại hoàn thành.'],
+    ['The proposal is predicated on the assumption that demand ____ stable.', 'will remain', 'remain will', 'would remained', 'has remain', 'Sau that dùng will remain để diễn tả giả định về tương lai.'],
   ],
 };
 

@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { QuestionService } from './question.service';
 import { englishQuestionPool } from './question-pool';
 import { QuestionHistory } from './question-history';
+import { GRAMMAR } from './english-learning-bank';
 import type { PrismaService } from '../prisma/prisma.service';
 import type { RedisService } from '../redis/redis.service';
 
@@ -38,8 +39,9 @@ describe('Non-repeating question history', () => {
   it('does not recycle grammar and does not consume remaining questions on a failed request', async () => {
     const service = new QuestionService({} as PrismaService, memoryHistory());
     const first = await service.get('EN', 15, 'IELTS', 'B2', undefined, [1]);
-    await expect(service.get('EN', 10, 'IELTS', 'B2', undefined, [1])).rejects.toThrow('Chỉ còn 5');
-    const remaining = await service.get('EN', 5, 'IELTS', 'B2', undefined, [1]);
+    const remainingCount = GRAMMAR.filter((item) => item.level === 'B2').length - first.length;
+    await expect(service.get('EN', 10, 'IELTS', 'B2', undefined, [1])).rejects.toThrow(`Chỉ còn ${remainingCount}`);
+    const remaining = await service.get('EN', remainingCount, 'IELTS', 'B2', undefined, [1]);
     expect(remaining.every(q => !first.some(old => old.text === q.text))).toBe(true);
   });
 
@@ -59,7 +61,10 @@ describe('Non-repeating question history', () => {
       expect(new Set(pool.map(q => q.contentKey)).size).toBe(pool.length);
       for (const question of pool) {
         expect(question.answer).toBeTruthy();
-        if (question.options) { expect(question.options).toContain(question.answer); expect(new Set(question.options).size).toBe(4); }
+        if (question.options) {
+          expect(question.options).toContain(question.answer);
+          expect(new Set(question.options).size).toBe(4);
+        }
       }
     }
   });

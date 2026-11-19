@@ -104,6 +104,8 @@ h1, h2, p { margin-top: 0; }
 .field-group { display: grid; gap: 9px; margin: 0 0 20px; }
 .field-label { color: #687164; font-size: 10px; }
 .segmented-control { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border: 1px solid rgb(24 33 29 / 18%); }
+.topic-picker { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; margin: 22px 0; padding: 4px; border: 1px solid rgb(24 33 29 / 18%); }
+.topic-picker .segment { min-height: 43px; justify-content: center; padding: 0 8px; }
 .segment { display: flex; min-height: 43px; align-items: center; justify-content: space-between; gap: 8px; padding: 0 13px; border: 1px solid transparent; background: transparent; color: var(--ink); font-size: 13px; font-weight: 600; }
 .segment span { color: #6c755f; font-family: var(--mono); font-size: 10px; }
 .segment.is-active { border-color: var(--ink); background: var(--paper); }
