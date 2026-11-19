@@ -76,6 +76,9 @@ a { color: inherit; }
 .history-back:hover span { transform: translateX(-3px); }
 .history-back:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; }
 .page { animation: page-in .45s ease both; }
+.page-home { display: grid; gap: 16px; }
+.page-home .challenge-grid, .page-home .home-grid { margin-bottom: 0; }
+.page-home .page-foot { margin-top: 0; }
 @keyframes page-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 .welcome-row { display: flex; min-height: 190px; align-items: center; justify-content: space-between; }
 .eyebrow, .field-label, .panel-index, .page-foot, .auth-art-footer { font-family: var(--mono); font-size: 10px; letter-spacing: 0; }
@@ -89,7 +92,7 @@ h1, h2, p { margin-top: 0; }
 .welcome-stamp span, .welcome-stamp b { font-family: var(--mono); font-size: 11px; }
 .welcome-stamp b { font-family: 'Space Grotesk', sans-serif; font-size: 22px; }
 .welcome-stamp i { position: absolute; right: 9px; bottom: 14px; color: var(--coral); font-size: 20px; font-style: normal; }
-.home-grid { display: grid; grid-template-columns: 1.1fr .9fr; gap: 16px; }
+.home-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
 .play-panel { min-width: 0; padding: 28px clamp(22px, 3.5vw, 42px) 34px; border: 1px solid var(--line); background: var(--paper); }
 .create-panel { background: var(--lime); border-color: var(--lime); }
 .panel-heading { display: flex; align-items: center; justify-content: space-between; }
@@ -193,7 +196,7 @@ input:focus-visible { box-shadow: 0 0 0 2px var(--coral); }
 .loading-state span { color: var(--coral); }
 
 .challenge-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0 0 16px; }
-.challenge-link { position: relative; display: grid; min-height: 134px; align-content: center; gap: 6px; padding: 22px 54px 22px 24px; border: 1px solid var(--ink); background: var(--paper); text-decoration: none; transition: transform .18s ease, background .18s ease; }
+.challenge-link { position: relative; display: grid; min-height: 148px; align-content: center; gap: 6px; padding: 22px 54px 22px 24px; border: 1px solid var(--ink); background: var(--paper); text-decoration: none; transition: transform .18s ease, background .18s ease; }
 .challenge-link:hover { transform: translateY(-3px); background: #e9eddd; }
 .challenge-time { background: #f2a082; }
 .challenge-daily { background: #d9e7f1; }
@@ -201,6 +204,7 @@ input:focus-visible { box-shadow: 0 0 0 2px var(--coral); }
 .challenge-link strong { font-size: 25px; }
 .challenge-link small { color: #566057; font-size: 12px; }
 .challenge-link > b { position: absolute; top: 20px; right: 21px; font-size: 21px; }
+.challenge-link > .button { width: 100%; margin-top: 4px; }
 .level-control-six { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .english-game-page { max-width: 980px; margin: 0 auto; }
 .english-game-heading { display: grid; grid-template-columns: minmax(0, 1fr) 205px; align-items: center; gap: 28px; min-height: 180px; }
