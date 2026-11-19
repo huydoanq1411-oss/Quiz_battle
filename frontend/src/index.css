@@ -70,6 +70,7 @@ a { color: inherit; }
 .user-badge { display: grid; width: 30px; aspect-ratio: 1; place-items: center; border: 1px solid var(--ink); border-radius: 50%; font-size: 12px; font-weight: 700; }
 .user-name { max-width: 140px; overflow: hidden; font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .app-main { width: min(1100px, 90vw); margin: 0 auto; padding: 60px 0 28px; }
+.app-main-home { padding-top: 28px; }
 .app-main-auth { width: 100%; padding: 0; }
 .history-back { display: inline-flex; min-height: 38px; align-items: center; gap: 9px; margin-bottom: 20px; padding: 0 12px 0 0; border: 0; background: transparent; color: var(--muted); font-size: 12px; font-weight: 700; }
 .history-back span { color: var(--coral); font-size: 19px; line-height: 1; transition: transform .16s ease; }
@@ -383,6 +384,7 @@ input:focus-visible { box-shadow: 0 0 0 2px var(--coral); }
 	.account-nav { gap: 7px; }
 	.user-name { display: none; }
 	.app-main { width: min(560px, 90vw); padding-top: 38px; }
+	.app-main-home { padding-top: 20px; }
 	.app-main-auth { width: 100%; padding: 0; }
 	.welcome-row { min-height: 165px; }
 	.welcome-stamp { width: 94px; height: 94px; }

@@ -49,7 +49,7 @@ export default function App() {
         </header>
       )}
       <InstallApp />
-      <main className={user ? 'app-main' : 'app-main app-main-auth'}>
+      <main className={user ? `app-main${location.pathname === '/' ? ' app-main-home' : ''}` : 'app-main app-main-auth'}>
         {user && location.pathname !== '/' && (
           <button
             className="history-back"
