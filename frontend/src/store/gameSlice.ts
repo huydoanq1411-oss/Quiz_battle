@@ -23,6 +23,7 @@ export interface GameState {
   ranking: Rank[];
   review?: ReviewItem[];
   duel?: boolean;
+  topic?: string;
 }
 
 const initial: GameState = {

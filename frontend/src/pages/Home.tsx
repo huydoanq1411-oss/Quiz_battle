@@ -20,6 +20,7 @@ export default function Home() {
   const nav = useNavigate();
   const [mode, setMode] = useState<'VOCAB' | 'IELTS'>('VOCAB');
   const [level, setLevel] = useState<EnglishLevel>('A1');
+  const [topic, setTopic] = useState('');
   const [total, setTotal] = useState(5);
   const [duel, setDuel] = useState(true);
   const [code, setCode] = useState('');
@@ -30,7 +31,7 @@ export default function Home() {
     if (busy) return;
     setBusy(true);
     setError('');
-    getSocket().timeout(90_000).emit(event, event === 'room:create' ? { lang: 'EN', total, mode, level, duel } : { code: code.trim().toUpperCase() }, (failure: Error | null, res?: RoomResponse) => {
+    getSocket().timeout(90_000).emit(event, event === 'room:create' ? { lang: 'EN', total, mode, level, duel, topic: mode === 'VOCAB' ? topic || undefined : undefined } : { code: code.trim().toUpperCase() }, (failure: Error | null, res?: RoomResponse) => {
       setBusy(false);
       if (failure || res?.error || !res?.code) {
         setError(res?.error ?? 'Chưa kết nối được. Lần mở đầu có thể mất khoảng một phút, vui lòng thử lại.');
@@ -42,9 +43,9 @@ export default function Home() {
   const challenge = async () => {
     setBusy(true); setError('');
     try {
-      const { data } = await api.post<{ challengeId: string }>('/english-games/challenges', { level });
+      const { data } = await api.post<{ challengeId: string }>('/english-games/challenges', { level, topic: topic || undefined });
       nav(`/challenges/${data.challengeId}`);
-    } catch { setError('Chưa tạo được thách đấu. Vui lòng thử lại.'); }
+    } catch (reason: unknown) { const message = (reason as { response?: { data?: { message?: string } } }).response?.data?.message; setError(message ?? 'Chưa tạo được thách đấu. Vui lòng thử lại.'); }
     finally { setBusy(false); }
   };
 
@@ -62,7 +63,7 @@ export default function Home() {
       </section>
 
       <section className="challenge-grid" aria-label="Chế độ thi đấu cá nhân">
-        <Link to="/games/time-attack" className="challenge-link challenge-time"><span>60 GIÂY / STREAK</span><strong>Time Attack</strong><small>Đua tốc độ cùng 8 dạng câu hỏi.</small><b aria-hidden="true">↗</b></Link>
+        <Link to={`/games/time-attack${topic ? `?topic=${topic}` : ''}`} className="challenge-link challenge-time"><span>60 GIÂY / STREAK</span><strong>Time Attack</strong><small>Đua tốc độ cùng các câu hỏi chưa gặp.</small><b aria-hidden="true">↗</b></Link>
         <Link to="/games/daily" className="challenge-link challenge-daily"><span>10 CÂU / MỖI NGÀY</span><strong>Daily Challenge</strong><small>Cùng bộ câu hỏi, thử thách toàn cầu.</small><b aria-hidden="true">↗</b></Link>
       </section>
       <section className="challenge-grid" aria-label="Học và thách đấu">
@@ -77,7 +78,8 @@ export default function Home() {
           </div>
           <h2>Tạo phòng</h2>
           <div className="segmented-control" role="group" aria-label="Kiểu trận"><button className={duel ? 'segment is-active' : 'segment'} aria-pressed={duel} onClick={() => setDuel(true)}>1v1 · 10 câu</button><button className={!duel ? 'segment is-active' : 'segment'} aria-pressed={!duel} onClick={() => setDuel(false)}>Nhiều người</button></div>
-          <p className="panel-copy">Chọn chủ đề, gọi hội bạn và bắt đầu cuộc đua kiến thức.</p>
+          <p className="panel-copy">Chọn chủ đề, gọi hội bạn và bắt đầu cuộc đua kiến thức. Đề mới tránh câu đã cấp cho mọi thành viên trong cùng chế độ, chủ đề và cấp độ.</p>
+          <label className="field-group"><span className="field-label">CHỦ ĐỀ TỪ VỰNG / THÁCH ĐẤU</span><select className="topic-select" value={topic} onChange={event => setTopic(event.target.value)}><option value="">Tổng hợp</option><option value="travel">Du lịch</option><option value="work">Công việc</option><option value="life">Đời sống</option></select><small>Áp dụng cho phòng từ vựng, Time Attack và link thách đấu. Ngữ pháp dùng đề tổng hợp.</small></label>
           <div className="field-group">
             <span className="field-label">DẠNG BÀI</span>
             <div className="segmented-control" role="group" aria-label="Chọn dạng câu hỏi tiếng Anh">

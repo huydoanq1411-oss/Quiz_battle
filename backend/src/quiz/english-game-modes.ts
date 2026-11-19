@@ -1,4 +1,4 @@
-import { GRAMMAR, VOCABULARY, type CefrLevel } from './english-learning-bank';
+import { GRAMMAR, VOCABULARY, type CefrLevel, type VocabularyEntry } from './english-learning-bank';
 import { topicVocabulary, type Topic } from './topics';
 
 export type EnglishModeId =
@@ -19,6 +19,7 @@ export type EnglishModeId =
   | 'boggle';
 
 export interface EnglishGameQuestion {
+  contentKey?: string;
   id: string;
   mode: EnglishModeId;
   skill: string;
@@ -87,6 +88,16 @@ const choiceQuestion = (
   answer,
 });
 
+export function matchQuestion(entries: VocabularyEntry[], random: () => number): EnglishGameQuestion {
+  const meanings = shuffle(entries.map(item => item.meaning), random);
+  const answer = entries.map(item => String(meanings.indexOf(item.meaning) + 1)).join('-');
+  return { id: questionId('word-match', random), mode: 'word-match', skill: 'Ghép từ với nghĩa',
+    contentKey: `word-match:${entries.map(item => item.word).sort().join('|')}`,
+    matchWords: entries.map(item => item.word), matchMeanings: meanings,
+    prompt: `Ghép A, B, C với nghĩa 1, 2, 3. Nhập ba số theo thứ tự, ví dụ 2-3-1.\n${entries.map((item, index) => `${String.fromCharCode(65 + index)}. ${item.word}`).join('\n')}\n${meanings.map((meaning, index) => `${index + 1}. ${meaning}`).join('\n')}`,
+    answer, hint: answer[0], explanation: entries.map(item => `${item.word}: ${item.meaning}`).join('; ') };
+}
+
 export const ENGLISH_GAME_MODULES: readonly EnglishGameModule[] = [
   {
     id: 'sentence-order', skill: 'Xếp câu',
@@ -94,6 +105,7 @@ export const ENGLISH_GAME_MODULES: readonly EnglishGameModule[] = [
       const entry = grammarEntry(level, random);
       const answer = entry.sentence.replace('____', entry.answer);
       return { id: questionId(this.id, random), mode: this.id, skill: this.skill,
+        contentKey: `${this.id}:${entry.sentence}`,
         prompt: 'Sắp xếp các từ thành câu hoàn chỉnh. Giữ nguyên dấu câu.',
         letters: shuffle(answer.split(' '), random), answer, hint: answer.split(' ')[0],
         explanation: `${entry.explanation} Câu đúng: ${answer}` };
@@ -106,6 +118,7 @@ export const ENGLISH_GAME_MODULES: readonly EnglishGameModule[] = [
       const entry = grammarEntry(level, random);
       const answer = entry.sentence.replace('____', entry.answer);
       return { id: questionId(this.id, random), mode: this.id, skill: this.skill,
+        contentKey: `${this.id}:${entry.sentence}`,
         prompt: `Sửa phần trong ngoặc vuông và nhập lại cả câu: ${entry.sentence.replace('____', `[${entry.distractors[0]}]`)}`,
         answer, hint: entry.answer[0], explanation: `${entry.explanation} Câu đúng: ${answer}` };
     },
@@ -115,12 +128,7 @@ export const ENGLISH_GAME_MODULES: readonly EnglishGameModule[] = [
     id: 'word-match', skill: 'Ghép từ với nghĩa',
     generateQuestion(level, random, topic) {
       const entries = shuffle(topic ? topicVocabulary(topic, level) : VOCABULARY.filter(item => item.level === level), random).slice(0, 3);
-      const meanings = shuffle(entries.map(item => item.meaning), random);
-      const answer = entries.map(item => String(meanings.indexOf(item.meaning) + 1)).join('-');
-      return { id: questionId(this.id, random), mode: this.id, skill: this.skill,
-        matchWords: entries.map(item => item.word), matchMeanings: meanings,
-        prompt: `Ghép A, B, C với nghĩa 1, 2, 3. Nhập ba số theo thứ tự, ví dụ 2-3-1.\n${entries.map((item, index) => `${String.fromCharCode(65 + index)}. ${item.word}`).join('\n')}\n${meanings.map((meaning, index) => `${index + 1}. ${meaning}`).join('\n')}`,
-        answer, hint: answer[0], explanation: entries.map(item => `${item.word}: ${item.meaning}`).join('; ') };
+      return matchQuestion(entries, random);
     },
     checkAnswer: (question, answer) => normalize(question.answer) === normalize(answer),
   },
@@ -131,7 +139,7 @@ export const ENGLISH_GAME_MODULES: readonly EnglishGameModule[] = [
       const entry = vocabularyEntry(level, random, topic);
       const distractors = shuffle((topic ? topicVocabulary(topic, level) : VOCABULARY.filter(item => item.level === level)).filter(item => item.word !== entry.word), random)
         .slice(0, 3).map((item) => item.meaning);
-      return { ...choiceQuestion(questionId(this.id, random), 'meaning-choice', this.skill, `“${entry.word}” có nghĩa là gì?`, entry.meaning, distractors, random), explanation: `“${entry.word}” có nghĩa là “${entry.meaning}”. Chọn nghĩa tương ứng với từ tiếng Anh này.` };
+      return { contentKey: `${this.id}:${entry.word}`, ...choiceQuestion(questionId(this.id, random), 'meaning-choice', this.skill, `“${entry.word}” có nghĩa là gì?`, entry.meaning, distractors, random), explanation: `“${entry.word}” có nghĩa là “${entry.meaning}”. Chọn nghĩa tương ứng với từ tiếng Anh này.` };
     },
     checkAnswer: (question, answer) => normalize(question.answer) === normalize(answer),
   },
@@ -142,6 +150,7 @@ export const ENGLISH_GAME_MODULES: readonly EnglishGameModule[] = [
       const entry = vocabularyEntry(level, random, topic);
       return {
         id: questionId(this.id, random), mode: this.id, skill: this.skill,
+        contentKey: `${this.id}:${entry.word}`,
         prompt: `Sắp xếp chữ cái để tạo từ có nghĩa “${entry.meaning}”.`,
         letters: shuffle(Array.from(entry.word.toLocaleUpperCase('en-US')), random),
         hint: entry.word[0].toLocaleUpperCase('en-US'), answer: entry.word,
@@ -155,7 +164,7 @@ export const ENGLISH_GAME_MODULES: readonly EnglishGameModule[] = [
     skill: 'Ngữ pháp',
     generateQuestion(level, random) {
       const entry = grammarEntry(level, random);
-      return { ...choiceQuestion(questionId(this.id, random), 'fill-gap', this.skill, entry.sentence, entry.answer, entry.distractors, random), explanation: `${entry.explanation} Câu hoàn chỉnh: ${entry.sentence.replace('____', entry.answer)}` };
+      return { contentKey: `${this.id}:${entry.sentence}`, ...choiceQuestion(questionId(this.id, random), 'fill-gap', this.skill, entry.sentence, entry.answer, entry.distractors, random), explanation: `${entry.explanation} Câu hoàn chỉnh: ${entry.sentence.replace('____', entry.answer)}` };
     },
     checkAnswer: (question, answer) => normalize(question.answer) === normalize(answer),
   },
@@ -166,7 +175,7 @@ export const ENGLISH_GAME_MODULES: readonly EnglishGameModule[] = [
       const entry = vocabularyEntry(level, random, topic);
       const distractors = shuffle((topic ? topicVocabulary(topic, level) : VOCABULARY.filter(item => item.level === level)).filter(item => item.word !== entry.word), random)
         .slice(0, 3).map((item) => item.meaning);
-      return { ...choiceQuestion(questionId(this.id, random), 'listen-choice', this.skill, 'Nghe từ tiếng Anh rồi chọn nghĩa phù hợp.', entry.meaning, distractors, random, entry.word), explanation: `Từ bạn nghe là “${entry.word}”, có nghĩa là “${entry.meaning}”.` };
+      return { contentKey: `${this.id}:${entry.word}`, ...choiceQuestion(questionId(this.id, random), 'listen-choice', this.skill, 'Nghe từ tiếng Anh rồi chọn nghĩa phù hợp.', entry.meaning, distractors, random, entry.word), explanation: `Từ bạn nghe là “${entry.word}”, có nghĩa là “${entry.meaning}”.` };
     },
     checkAnswer: (question, answer) => normalize(question.answer) === normalize(answer),
   },
@@ -177,6 +186,7 @@ export const ENGLISH_GAME_MODULES: readonly EnglishGameModule[] = [
       const entry = vocabularyEntry(level, random, topic);
       return {
         id: questionId(this.id, random), mode: this.id, skill: this.skill,
+        contentKey: `${this.id}:${entry.word}`,
         prompt: `Đoán từ tiếng Anh có nghĩa “${entry.meaning}”.`,
         answerLength: Array.from(entry.word).length, hint: entry.word[0].toLocaleUpperCase('en-US'), answer: entry.word,
         explanation: `Từ cần tìm là “${entry.word}”, nghĩa là “${entry.meaning}”, gồm ${Array.from(entry.word).length} chữ cái.`,

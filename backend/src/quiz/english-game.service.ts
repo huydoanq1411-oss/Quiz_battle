@@ -6,6 +6,8 @@ import { RedisService } from '../redis/redis.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { makeReviewItem, type ReviewItem } from './review';
 import { TOPICS, type Topic } from './topics';
+import { QuestionHistory } from './question-history';
+import { englishQuestionPool } from './question-pool';
 
 type SessionKind = 'time-attack' | 'daily' | 'lesson' | 'challenge';
 type ItemId = 'fifty-fifty' | 'extra-time' | 'hint';
@@ -40,9 +42,12 @@ interface EnglishSession {
   completedAt?: number;
   weeklyDays?: number;
   dailyGoalMet?: boolean;
+  deck?: EnglishGameQuestion[];
+  uniqueQuestions?: boolean;
+  finishReason?: 'pool-exhausted';
 }
 
-interface Challenge { id: string; seed: string; level: CefrLevel; topic?: Topic; expiresAt: number }
+interface Challenge { id: string; seed: string; level: CefrLevel; topic?: Topic; expiresAt: number; deck?: EnglishGameQuestion[]; creatorId?: number }
 
 const LEVELS: readonly CefrLevel[] = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 const PLAYABLE_MODES: readonly EnglishModeId[] = ['meaning-choice', 'letter-order', 'fill-gap', 'listen-choice', 'wordle', 'sentence-order', 'error-correction', 'word-match'];
@@ -80,6 +85,7 @@ export class EnglishGameService {
     if (!LEVELS.includes(level)) throw new BadRequestException('Cấp độ CEFR không hợp lệ.');
     if (topic !== undefined && !TOPICS.includes(topic)) throw new BadRequestException('Chủ đề không hợp lệ.');
     if (kind === 'challenge' && !challenge) throw new BadRequestException('Thiếu thách đấu.');
+    if (kind === 'daily') topic = undefined;
     const dailyDate = kind === 'daily' ? utcDate() : undefined;
     const effectiveLevel: CefrLevel = kind === 'daily' ? 'B1' : level;
     if (dailyDate) {
@@ -100,6 +106,13 @@ export class EnglishGameService {
 
     const now = Date.now();
     const id = randomUUID();
+    const history = new QuestionHistory(this.redis);
+    const deck = kind === 'daily' ? await this.dailyDeck(dailyDate!)
+      : kind === 'lesson' ? await history.take([userId], `lesson:${effectiveLevel}:${topic ?? 'all'}`, englishQuestionPool(effectiveLevel, topic, id), 10)
+        : challenge?.deck;
+    const firstQuestion = deck?.[0] ?? (challenge
+      ? this.makeQuestion(kind, effectiveLevel, sessionSeed(kind, dailyDate, challenge.seed, 0), 0, topic)
+      : (await history.take([userId], `time-attack:${effectiveLevel}:${topic ?? 'all'}`, englishQuestionPool(effectiveLevel, topic, id), 1))[0]);
     const session: EnglishSession = {
       id,
       userId,
@@ -108,6 +121,8 @@ export class EnglishGameService {
       topic: kind === 'daily' ? undefined : topic,
       challengeId: challenge?.id,
       seed: challenge?.seed ?? id,
+      deck,
+      uniqueQuestions: true,
       dailyDate,
       questionIndex: 0,
       score: 0,
@@ -124,7 +139,7 @@ export class EnglishGameService {
       status: 'playing',
       startedAt: now,
       endsAt: Math.min(challenge?.expiresAt ?? Infinity, now + (kind === 'lesson' ? 600_000 : kind === 'time-attack' ? TIME_ATTACK_MS : 150_000)),
-      question: this.makeQuestion(kind, effectiveLevel, sessionSeed(kind, dailyDate, challenge?.seed ?? id, 0), 0, topic),
+      question: firstQuestion,
     };
     if (dailyDate) {
       const reserved = await this.redis.client.set(this.dailyActiveKey(userId, dailyDate), id, 'EX', SESSION_TTL_SECONDS, 'NX');
@@ -203,8 +218,23 @@ export class EnglishGameService {
       session.guesses = [];
       session.guessFeedback = [];
       session.hiddenOptions = [];
-      session.question = this.makeQuestion(session.kind, session.level, sessionSeed(session.kind, session.dailyDate, session.seed, session.questionIndex), session.questionIndex, session.topic);
-      await this.saveSession(session);
+      if (session.deck) {
+        session.question = session.deck[session.questionIndex];
+        await this.saveSession(session);
+      } else if (session.kind === 'time-attack' && session.uniqueQuestions) {
+        try {
+          session.question = (await new QuestionHistory(this.redis).take([userId], `time-attack:${session.level}:${session.topic ?? 'all'}`, englishQuestionPool(session.level, session.topic, session.seed), 1))[0];
+          await this.saveSession(session);
+        } catch (error) {
+          if (!(error instanceof BadRequestException)) throw error;
+          session.finishReason = 'pool-exhausted';
+          await this.finish(session, false);
+        }
+      } else {
+        // Keep already-issued legacy sessions/challenge links compatible.
+        session.question = this.makeQuestion(session.kind, session.level, sessionSeed(session.kind, session.dailyDate, session.seed, session.questionIndex), session.questionIndex, session.topic);
+        await this.saveSession(session);
+      }
     }
 
     return { ...this.publicState(session), lastAnswerCorrect: correct, questionComplete: true, wordleFailed };
@@ -276,7 +306,7 @@ export class EnglishGameService {
   }
 
   private publicState(session: EnglishSession) {
-    const { answer: _answer, hint: _hint, explanation: _explanation, ...question } = session.question;
+    const { answer: _answer, hint: _hint, explanation: _explanation, contentKey: _contentKey, ...question } = session.question;
     return {
       id: session.id,
       kind: session.kind,
@@ -304,6 +334,7 @@ export class EnglishGameService {
       dailyGoalMet: session.dailyGoalMet,
       weeklyDays: session.weeklyDays,
       completedAt: session.completedAt,
+      finishReason: session.finishReason,
       review: session.status === 'finished' ? session.review : undefined,
     };
   }
@@ -407,6 +438,8 @@ export class EnglishGameService {
   async createChallenge(userId: number, level: CefrLevel, topic?: Topic) {
     if (!LEVELS.includes(level) || (topic !== undefined && !TOPICS.includes(topic))) throw new BadRequestException('Cấp độ hoặc chủ đề không hợp lệ.');
     const challenge: Challenge = { id: randomUUID(), seed: randomUUID(), level, topic, expiresAt: Date.now() + SESSION_TTL_SECONDS * 1000 };
+    challenge.creatorId = userId;
+    challenge.deck = await new QuestionHistory(this.redis).take([userId], `challenge:${level}:${topic ?? 'all'}`, englishQuestionPool(level, topic, challenge.seed), 10);
     await this.redis.client.set(`english:challenge:${challenge.id}`, JSON.stringify(challenge), 'EX', SESSION_TTL_SECONDS);
     return this.joinChallenge(userId, challenge.id);
   }
@@ -439,6 +472,9 @@ export class EnglishGameService {
       const key = `english:challenge:attempt:${id}:${userId}`;
       const existing = await this.redis.client.get(key);
       if (existing) return this.getState(userId, existing);
+      if (challenge.deck && challenge.creatorId !== userId) {
+        await new QuestionHistory(this.redis).take([userId], `challenge:${challenge.level}:${challenge.topic ?? 'all'}`, challenge.deck, 10);
+      }
       const state = await this.start(userId, 'challenge', challenge.level, challenge.topic, challenge);
       await this.redis.client.set(key, state.id, 'PX', Math.max(1, challenge.expiresAt - Date.now()));
       return state;
@@ -449,6 +485,17 @@ export class EnglishGameService {
     const session = await this.readSession(id);
     if (!session || session.userId !== userId) throw new NotFoundException('Không tìm thấy lượt chơi.');
     return session;
+  }
+
+  private async dailyDeck(date: string): Promise<EnglishGameQuestion[]> {
+    return this.withSessionLock(`daily-deck:${date}`, async () => {
+      const key = `english:daily:deck:v1:${date}`;
+      const existing = await this.redis.client.get(key);
+      if (existing) return JSON.parse(existing) as EnglishGameQuestion[];
+      const deck = await new QuestionHistory(this.redis).take(['shared'], 'daily:B1:all', englishQuestionPool('B1', undefined, date, true), 10);
+      await this.redis.client.set(key, JSON.stringify(deck), 'EX', SESSION_TTL_SECONDS);
+      return deck;
+    });
   }
 
   private async withSessionLock<T>(id: string, operation: () => Promise<T>): Promise<T> {

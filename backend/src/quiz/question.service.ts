@@ -1,5 +1,9 @@
 ﻿import { Injectable } from '@nestjs/common';
 import { KanjiCard } from '@prisma/client';
+import { BadRequestException, Optional } from '@nestjs/common';
+import { RedisService } from '../redis/redis.service';
+import { QuestionHistory } from './question-history';
+import { topicVocabulary, type Topic } from './topics';
 import { PrismaService } from '../prisma/prisma.service';
 import { GRAMMAR, VOCABULARY, type CefrLevel } from './english-learning-bank';
 
@@ -10,7 +14,7 @@ export type Lang = 'EN' | 'JA';
 export type JapaneseLevel = 'N5' | 'N4' | 'N3' | 'N2' | 'N1';
 export type QuizLevel = EnglishLevel | JapaneseLevel;
 export type QuizMode = EnglishMode | 'JLPT';
-export interface Question { text: string; options: string[]; correctIndex: number; explanation?: string }
+export interface Question { text: string; options: string[]; correctIndex: number; explanation?: string; contentKey?: string }
 
 const shuffle = <T,>(a: T[]) => {
   const r = [...a];
@@ -22,27 +26,30 @@ const shuffle = <T,>(a: T[]) => {
 };
 const sample = <T,>(items: readonly T[], count: number) => {
   if (items.length === 0) throw new Error('Không có dữ liệu câu hỏi cho cấp độ này.');
-  const shuffled = shuffle([...items]);
-  return Array.from({ length: count }, (_, index) => shuffled[index % shuffled.length]);
+  if (items.length < count) throw new BadRequestException(`Chỉ có ${items.length} câu khác nhau, cần ${count} câu.`);
+  return shuffle([...items]).slice(0, count);
 };
 const clean = (s?: string) => s?.replace(/[.-]/g, '');
 
 @Injectable()
 export class QuestionService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, @Optional() private redis?: RedisService) {}
 
-  get(lang: Lang, n: number, mode: QuizMode = 'VOCAB', level: QuizLevel = 'A1') {
-    return lang === 'JA'
-      ? this.japanese(n, level as JapaneseLevel)
-      : this.english(n, mode === 'IELTS' ? 'IELTS' : 'VOCAB', level as EnglishLevel);
+  async get(lang: Lang, n: number, mode: QuizMode = 'VOCAB', level: QuizLevel = 'A1', topic?: Topic, users: number[] = []) {
+    const pool = lang === 'JA' ? await this.japanese(level as JapaneseLevel)
+      : this.english(mode === 'IELTS' ? 'IELTS' : 'VOCAB', level as EnglishLevel, topic);
+    if (!users.length) return sample(pool, n);
+    if (!this.redis) throw new Error('Question history store is unavailable.');
+    return new QuestionHistory(this.redis).take(users, `room:${lang}:${mode}:${level}:${topic ?? 'all'}`, shuffle(pool), n);
   }
 
-  private english(n: number, mode: EnglishMode, level: EnglishLevel): Question[] {
+  private english(mode: EnglishMode, level: EnglishLevel, topic?: Topic): Question[] {
     if (mode === 'IELTS') {
       const items = GRAMMAR.filter((item) => item.level === level);
-      return sample(items, n).map((item) => {
+      return items.map((item) => {
         const options = shuffle([item.answer, ...item.distractors]);
         return {
+          contentKey: `fill-gap:${item.sentence}`,
           text: `Chọn đáp án phù hợp nhất để hoàn thành câu:\n${item.sentence}`,
           options,
           correctIndex: options.indexOf(item.answer),
@@ -51,11 +58,12 @@ export class QuestionService {
       });
     }
 
-    const items = VOCABULARY.filter((item) => item.level === level);
-    return sample(items, n).map((item) => {
+    const items = topic ? topicVocabulary(topic, level) : VOCABULARY.filter((item) => item.level === level);
+    return items.map((item) => {
       const distractors = shuffle(items.filter((candidate) => candidate.word !== item.word));
       const options = shuffle([item.meaning, ...distractors.slice(0, 3).map((candidate) => candidate.meaning)]);
       return {
+        contentKey: `meaning-choice:${item.word}`,
         text: `Từ “${item.word}” có nghĩa gần nhất là gì?`,
         options,
         correctIndex: options.indexOf(item.meaning),
@@ -64,16 +72,15 @@ export class QuestionService {
     });
   }
 
-  private async japanese(n: number, level: JapaneseLevel): Promise<Question[]> {
+  private async japanese(level: JapaneseLevel): Promise<Question[]> {
     const jlpt = Number(level.slice(1));
     const cards = shuffle(await this.prisma.kanjiCard.findMany({ where: { jlpt } }));
-    if (cards.length < n + 3) {
+    if (cards.length < 4) {
       throw new Error(`Chưa đủ dữ liệu kanji ${level}. Hãy chạy seed-kanji để nạp dữ liệu JLPT.`);
     }
 
     const out: Question[] = [];
     for (const card of cards) {
-      if (out.length >= n) break;
       const mode: 'meaning' | 'reading' = Math.random() < 0.5 ? 'meaning' : 'reading';
       const val = (c: KanjiCard) =>
         mode === 'meaning'
@@ -91,6 +98,7 @@ export class QuestionService {
       if (options.length < 4) continue;
 
       out.push({
+        contentKey: `kanji:${mode}:${card.kanji}`,
         text: mode === 'meaning'
           ? `「${card.kanji}」có nghĩa là gì?`
           : `「${card.kanji}」đọc là gì? (kun-yomi)`,
@@ -101,7 +109,7 @@ export class QuestionService {
           : `Một cách đọc kun-yomi của 「${card.kanji}」 là “${correct}”. Các cách đọc trong dữ liệu: ${(card.kunReadings as string[]).join(', ')}.`,
       });
     }
-    if (out.length < n) throw new Error(`Không đủ câu hỏi có đáp án hợp lệ cho ${level}.`);
+    if (!out.length) throw new Error(`Không đủ câu hỏi có đáp án hợp lệ cho ${level}.`);
     return out;
   }
 }

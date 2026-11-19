@@ -1,3 +1,5 @@
+import { EXTRA_GRAMMAR } from './grammar-expansion';
+import { TOPICS, topicVocabulary } from './topics';
 export type CefrLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
 
 export interface VocabularyEntry {
@@ -14,7 +16,7 @@ export interface GrammarEntry {
   explanation: string;
 }
 
-export const VOCABULARY: readonly VocabularyEntry[] = [
+const BASE_VOCABULARY: readonly VocabularyEntry[] = [
   { word: 'apple', meaning: 'quả táo', level: 'A1' },
   { word: 'arrive', meaning: 'đến nơi', level: 'A1' },
   { word: 'borrow', meaning: 'mượn', level: 'A1' },
@@ -77,7 +79,13 @@ export const VOCABULARY: readonly VocabularyEntry[] = [
   { word: 'unequivocal', meaning: 'rõ ràng, không thể hiểu lầm', level: 'C2' },
 ];
 
+export const VOCABULARY: readonly VocabularyEntry[] = [...new Map([
+  ...TOPICS.flatMap(topic => (['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as const).flatMap(level => topicVocabulary(topic, level))),
+  ...BASE_VOCABULARY,
+].map(item => [`${item.level}:${item.word}`, item])).values()];
+
 export const GRAMMAR: readonly GrammarEntry[] = [
+  ...EXTRA_GRAMMAR,
   { sentence: 'She ____ to school every day.', answer: 'walks', distractors: ['walk', 'walking', 'walked'], level: 'A1', explanation: '“Every day” diễn tả thói quen ở hiện tại đơn. Chủ ngữ “she” là ngôi thứ ba số ít nên động từ thêm -s: walks.' },
   { sentence: 'They ____ watching a film now.', answer: 'are', distractors: ['is', 'be', 'was'], level: 'A1', explanation: '“Now” chỉ hành động đang diễn ra. Hiện tại tiếp diễn dùng am/is/are + V-ing; “they” đi với “are”.' },
   { sentence: 'I ____ a new student last year.', answer: 'was', distractors: ['am', 'were', 'be'], level: 'A1', explanation: '“Last year” chỉ quá khứ. Động từ “be” ở quá khứ với chủ ngữ “I” là “was”.' },

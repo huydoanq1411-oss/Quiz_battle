@@ -2,6 +2,14 @@
 
 ## Nâng cấp chế độ chơi
 
+### Không lặp câu và chọn chủ đề (19/11/2026)
+
+- Chọn Tổng hợp/Du lịch/Công việc/Đời sống khi tạo phòng và tạo link thách đấu; Time Attack và bài học nhận đúng chủ đề đã chọn. Chủ đề riêng dùng ngân hàng từ vựng tương ứng; ngữ pháp dùng ngân hàng tổng hợp, giao diện nêu rõ.
+- Mỗi đề chỉ có câu khác nhau theo nội dung, không coi đảo đáp án/chữ cái/ID là câu mới. Lịch sử được lưu trong Redis không TTL theo tài khoản và chế độ/cấp/chủ đề; áp dụng từ phiên bản mới, không thể tái tạo toàn bộ câu đúng của trận cũ.
+- Phòng đấu chọn câu chưa cấp cho bất kỳ thành viên nào. Link thách đấu giữ nguyên đề; người đã gặp câu của đề trong thách đấu trước được báo để tạo link khác. Daily dùng đề chung theo ngày và không lặp với các đề Daily mới trước đó; tách khỏi lịch sử luyện tự do để giữ đề chung.
+- Lượt cố định cần đủ 10 câu mới (hoặc số câu đã chọn); thiếu thì báo số câu còn lại và yêu cầu đổi chủ đề/cấp. Không tự xóa lịch sử hoặc tái sử dụng câu cũ. Time Attack kết thúc khi hết câu mới. Tải lại/tiếp tục cùng lượt không tạo đề khác.
+- Mở rộng mỗi chủ đề/cấp lên ít nhất 20 từ; kiểm tra cùng lượt, hai lượt liên tiếp, nhiều tài khoản, thao tác đồng thời, đề chung và không lộ đáp án/lịch sử nội bộ. Không thêm dịch vụ hoặc dependency.
+
 - 1v1: đúng hai tài khoản, 10 câu chung; kết quả so sánh số câu đúng và tổng thời gian (câu bỏ trống tính 15 giây). Ưu tiên độ chính xác rồi tốc độ.
 - Lộ trình: Du lịch, Công việc, Đời sống; mỗi chủ đề có A1–C2, bài 10 câu và phần ôn cuối bài. Không khóa cấp độ.
 - Daily: 10 câu, đạt ít nhất 8 câu đúng và hoàn thành đủ 10 câu để tính ngày đạt mục tiêu. Tuần UTC từ thứ Hai; huy hiệu Đồng/Bạc/Vàng ở 3/5/7 ngày. Mỗi ngày chỉ tính một lần.

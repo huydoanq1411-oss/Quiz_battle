@@ -9,7 +9,8 @@ import { GameService } from './game.service';
 import type { CefrLevel as EnglishLevel } from './english-learning-bank';
 import type { JapaneseLevel, QuizLevel } from './question.service';
 import { clientOrigins } from '../config';
-import { ConflictException, Logger } from '@nestjs/common';
+import { ConflictException, BadRequestException, Logger } from '@nestjs/common';
+import { TOPICS, type Topic } from './topics';
 
 const ENGLISH_LEVELS: EnglishLevel[] = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 const JAPANESE_LEVELS: JapaneseLevel[] = ['N5', 'N4', 'N3', 'N2', 'N1'];
@@ -45,22 +46,24 @@ export class QuizGateway implements OnGatewayInit, OnGatewayDisconnect {
       return await operation();
     } catch (error) {
       if (error instanceof ConflictException) return { error: error.message, retryable: true };
+      if (error instanceof BadRequestException) return { error: error.message, retryable: false };
       this.logger.warn('Room request failed; client can retry.');
       return { error: 'Chưa cập nhật được phòng. Vui lòng thử lại.', retryable: true };
     }
   }
 
   @SubscribeMessage('room:create')
-  async create(@ConnectedSocket() c: Socket, @MessageBody() b: { lang: string; total: number; mode?: string; level?: string; duel?: boolean }) {
+  async create(@ConnectedSocket() c: Socket, @MessageBody() b: { lang: string; total: number; mode?: string; level?: string; duel?: boolean; topic?: Topic }) {
     return this.respond(async () => {
       if (!b || typeof b !== 'object') return { error: 'Thông tin phòng không hợp lệ.' };
       const lang = b.lang === 'JA' ? 'JA' : 'EN';
       const mode = lang === 'JA' ? 'JLPT' : b.mode === 'IELTS' ? 'IELTS' : 'VOCAB';
+      if (b.topic !== undefined && (!TOPICS.includes(b.topic) || mode !== 'VOCAB')) return { error: 'Chủ đề chỉ áp dụng cho từ vựng tiếng Anh.' };
       const availableLevels: string[] = lang === 'JA' ? JAPANESE_LEVELS : ENGLISH_LEVELS;
       const defaultLevel = lang === 'JA' ? 'N5' : 'A1';
       const level = (availableLevels.includes(b.level ?? '') ? b.level : defaultLevel) as QuizLevel;
       const total = Number(b.total);
-      const room = await this.game.create(c.data.user, c.id, lang, Number.isFinite(total) ? total : 10, mode, level, b.duel === true);
+      const room = await this.game.create(c.data.user, c.id, lang, Number.isFinite(total) ? total : 10, mode, level, b.duel === true, b.topic);
       await c.join(room.code);
       this.game.broadcastPlayers(room);
       return { ok: true, code: room.code };

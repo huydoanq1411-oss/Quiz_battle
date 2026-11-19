@@ -400,4 +400,5 @@ input:focus-visible { box-shadow: 0 0 0 2px var(--coral); }
 .sentence-tokens { margin-bottom: 20px; }
 .sentence-tokens button { margin: 3px; padding: 8px 12px; }
 .matching-fields select { width: 100%; min-width: 0; padding: 12px; font: inherit; border: 1px solid var(--line); background: var(--paper); }
+.topic-select { width: 100%; min-width: 0; padding: 12px; font: inherit; font-size: 16px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); }
 .mistake-review h2, .review-list summary strong { white-space: pre-line; }

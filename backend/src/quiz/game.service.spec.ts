@@ -70,7 +70,7 @@ describe('Persistent multiplayer', () => {
     await service.join(room.code, other, 'guest');
     expect(await service.join(room.code, { id: 3, name: 'Third' }, 'third')).toHaveProperty('error');
     expect(await service.start(room.code, host.id)).toEqual({ ok: true });
-    expect(get).toHaveBeenCalledWith('EN', 10, 'VOCAB', 'A1');
+    expect(get).toHaveBeenCalledWith('EN', 10, 'VOCAB', 'A1', undefined, [1, 2]);
     await jest.advanceTimersByTimeAsync(1500);
     await jest.advanceTimersByTimeAsync(1000);
     await service.answer(room.code, host.id, 'host', 0, 0);

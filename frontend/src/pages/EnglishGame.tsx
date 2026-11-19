@@ -60,6 +60,7 @@ interface GameView {
   challengeId?: string;
   dailyGoalMet?: boolean;
   weeklyDays?: number;
+  finishReason?: 'pool-exhausted';
 }
 
 interface ChallengeInfo { id: string; level: CefrLevel; topic?: string; expiresAt: number; sessionId?: string; ranking: { userId: number; name: string; correct: number; elapsedMs: number }[] }
@@ -77,13 +78,13 @@ const ITEM_LABELS: Record<ItemId, string> = {
 const storageKey = (userId: number | undefined, gameKind: GameKind, dailyDate?: string, topic?: string, level?: string) =>
   gameKind === 'daily'
     ? `quiz-battle:english-game:${userId}:daily:${dailyDate ?? new Date().toISOString().slice(0, 10)}`
-    : `quiz-battle:english-game:${userId}:${gameKind}:${gameKind === 'lesson' ? `${topic ?? 'all'}:${level}` : 'latest'}`;
+    : `quiz-battle:english-game:${userId}:${gameKind}:${gameKind === 'challenge' ? 'latest' : `${topic ?? 'all'}:${level}`}`;
 
 export default function EnglishGame() {
   const userId = useSelector((state: RootState) => state.auth.user?.id);
   const { kind: routeKind, challengeId } = useParams();
   const [search] = useSearchParams();
-  const topic = search.get('topic') ?? undefined;
+  const [topic, setTopic] = useState<string | undefined>(search.get('topic') ?? undefined);
   const kind: GameKind = challengeId ? 'challenge' : routeKind === 'daily' ? 'daily' : routeKind === 'lesson' ? 'lesson' : 'time-attack';
   const [level, setLevel] = useState<CefrLevel>((search.get('level') ?? 'A1') as CefrLevel);
   const [challenge, setChallenge] = useState<ChallengeInfo | null>(null);
@@ -140,12 +141,19 @@ export default function EnglishGame() {
   useEffect(() => {
     if (kind === 'challenge') return;
     const key = storageKey(userId, kind, undefined, topic, level);
-    const savedId = localStorage.getItem(key);
+    const savedId = localStorage.getItem(key) ?? (kind === 'time-attack' ? localStorage.getItem(`quiz-battle:english-game:${userId}:time-attack:latest`) : null);
     if (!savedId) return;
-    api.get<GameView>(`/english-games/${savedId}`).then((response) => applyGame(response.data)).catch((reason: unknown) => {
+    let active = true;
+    api.get<GameView>(`/english-games/${savedId}`).then((response) => {
+      if (!active) return;
+      if (kind !== 'daily' && (response.data.topic !== topic || response.data.level !== level)) return;
+      applyGame(response.data);
+    }).catch((reason: unknown) => {
+      if (!active) return;
       if ((reason as ApiError).response?.status === 404) localStorage.removeItem(key);
       else setError('Chưa tải được lượt chơi đã lưu. Kiểm tra kết nối rồi thử lại.');
     });
+    return () => { active = false; };
   }, [applyGame, kind, userId, topic, level]);
 
   const startGame = async () => {
@@ -262,7 +270,7 @@ export default function EnglishGame() {
   };
 
   if (error && !game) {
-    return <section className="english-game-page"><p className="eyebrow">THỬ THÁCH TIẾNG ANH</p><h1>Chưa tải được lượt chơi.</h1><p className="page-intro">{error}</p><button className="button button-primary" type="button" onClick={() => window.location.reload()}>Thử lại</button><Link className="button button-quiet" to="/">Về sảnh chơi</Link></section>;
+    return <section className="english-game-page"><p className="eyebrow">THỬ THÁCH TIẾNG ANH</p><h1>Chưa bắt đầu được lượt chơi.</h1><p className="page-intro">{error}</p><button className="button button-primary" type="button" onClick={() => window.location.reload()}>Thử lại</button><Link className="button button-quiet" to="/learn">Chọn chủ đề/cấp độ khác</Link><Link className="button button-quiet" to="/">Về sảnh chơi</Link></section>;
   }
   if (!game) return (
     <section className="english-game-page">
@@ -270,6 +278,7 @@ export default function EnglishGame() {
         <div><p className="eyebrow"><span className="live-dot" /> {kind.toUpperCase()}</p><h1>{title}</h1><p className="page-intro">{intro}</p></div>
         <label className="game-level-picker">CẤP ĐỘ<select value={kind === 'daily' ? 'B1' : challenge?.level ?? level} disabled={kind === 'daily' || kind === 'challenge'} onChange={(event) => setLevel(event.target.value as CefrLevel)}>{LEVELS.map((item) => <option key={item.value} value={item.value}>{item.value} · {item.label}</option>)}</select></label>
       </header>
+      {kind === 'time-attack' && <label className="field-group"><span>CHỦ ĐỀ</span><select className="topic-select" value={topic ?? ''} onChange={event => setTopic(event.target.value || undefined)}><option value="">Tổng hợp</option><option value="travel">Du lịch</option><option value="work">Công việc</option><option value="life">Đời sống</option></select></label>}
       <div className="game-finished game-setup"><p className="eyebrow">SẴN SÀNG?</p><h2>{title} · {kind === 'daily' ? 'B1' : challenge?.level ?? level}</h2><p className="page-intro">{intro}</p>{weekly && <p>Tuần này đạt {weekly.days}/7 ngày · Huy hiệu: {weekly.badge ?? 'Chưa có'} · Đồng 3 / Bạc 5 / Vàng 7 ngày.</p>}{challenge && <p>Link hết hạn: {new Date(challenge.expiresAt).toLocaleString('vi-VN')}.</p>}{error && <p className="form-error" role="alert">{error}</p>}<button className="button button-primary" type="button" disabled={busy || (kind === 'challenge' && !challenge)} onClick={() => void startGame()}>{busy ? 'Đang bắt đầu…' : 'Bắt đầu chơi'} <span aria-hidden="true">→</span></button></div>
     </section>
   );
@@ -287,8 +296,9 @@ export default function EnglishGame() {
           <p className="eyebrow"><span className="live-dot" /> {kind === 'daily' ? 'DAILY' : kind === 'lesson' ? 'LỘ TRÌNH' : kind === 'challenge' ? 'THÁCH ĐẤU QUA LINK' : 'TIME ATTACK'} / {game.level}</p>
           <h1>{title}</h1>
           <p className="page-intro">{intro}</p>
+          {kind !== 'daily' && <p>Chủ đề: {({ travel: 'Du lịch', work: 'Công việc', life: 'Đời sống' } as Record<string, string>)[game.topic ?? ''] ?? 'Tổng hợp'} · Câu mới theo lịch sử của tài khoản.</p>}
         </div>
-        <label className="game-level-picker">CẤP ĐỘ<select value={kind === 'daily' ? 'B1' : game?.level ?? level} disabled={kind === 'daily' || Boolean(game)} onChange={(event) => setLevel(event.target.value as CefrLevel)}>{LEVELS.map((item) => <option key={item.value} value={item.value}>{item.value} · {item.label}</option>)}</select></label>
+        <label className="game-level-picker">CẤP ĐỘ<select value={kind === 'daily' ? 'B1' : game?.level ?? level} disabled={kind !== 'time-attack' || game.status === 'playing'} onChange={(event) => { setLevel(event.target.value as CefrLevel); setGame(null); }}>{LEVELS.map((item) => <option key={item.value} value={item.value}>{item.value} · {item.label}</option>)}</select></label>
       </header>
 
       <div className="game-metrics" aria-live="polite">
@@ -304,7 +314,8 @@ export default function EnglishGame() {
         <>
         <div className="game-finished">
           <p className="eyebrow">LƯỢT CHƠI ĐÃ LƯU</p>
-          <h2>{kind === 'time-attack' ? 'Hết giờ.' : 'Kết quả lượt chơi.'}</h2>
+          <h2>{game.finishReason === 'pool-exhausted' ? 'Đã hết câu mới cho lựa chọn này.' : kind === 'time-attack' ? 'Hết giờ.' : 'Kết quả lượt chơi.'}</h2>
+          {game.finishReason === 'pool-exhausted' && <Link className="button button-quiet" to="/learn">Đổi chủ đề/cấp độ</Link>}
           <p className="page-intro">Bạn đạt <strong>{game.score} điểm</strong>, đúng {game.correctAnswers} câu và có streak cao nhất {game.bestStreak}.{game.dailyStreak ? ` Chuỗi Daily Challenge: ${game.dailyStreak} ngày.` : ''}</p>
           {kind === 'daily' && <p>{game.dailyGoalMet ? '✓ Đạt mục tiêu 8/10!' : 'Chưa đạt mục tiêu: cần hoàn thành 10 câu và đúng ít nhất 8 câu.'} Tuần này: {weekly?.days ?? game.weeklyDays ?? 0}/7 ngày đạt · Huy hiệu {weekly?.badge ?? ((game.weeklyDays ?? 0) >= 7 ? 'Vàng' : (game.weeklyDays ?? 0) >= 5 ? 'Bạc' : (game.weeklyDays ?? 0) >= 3 ? 'Đồng' : 'chưa có')}. Đồng 3 / Bạc 5 / Vàng 7 ngày.</p>}
           {kind === 'lesson' && <><p>{game.questionIndex >= 10 && game.correctAnswers >= 8 ? '✓ Đã đạt cấp độ này.' : 'Luyện lại để đạt 8/10 nhé.'}</p><Link className="button button-primary" to="/learn">Chọn bài tiếp theo</Link><button className="button button-quiet" disabled={busy} onClick={() => void startGame()}>Luyện bài mới</button></>}
@@ -312,6 +323,7 @@ export default function EnglishGame() {
           {(kind === 'time-attack' || kind === 'daily') && <Link className="button button-primary" to="/leaderboard">Xem bảng xếp hạng <span aria-hidden="true">→</span></Link>}
           {kind === 'challenge' && <Link className="button button-quiet" to="/">Về sảnh chơi</Link>}
           {game.kind === 'time-attack' && <button className="button button-quiet" type="button" disabled={busy} onClick={() => void startGame()}>{busy ? 'Đang bắt đầu…' : 'Chơi lượt mới'}</button>}
+          {game.kind === 'time-attack' && <button className="button button-quiet" type="button" onClick={() => { setGame(null); setError(''); }}>Chọn chủ đề/cấp độ khác</button>}
           {error && <p className="form-error" role="alert">{error}</p>}
         </div>
         <WrongAnswerReview key={game.id} items={game.review} />

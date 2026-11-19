@@ -105,6 +105,7 @@ export default function Room() {
             <h1>Sẵn sàng<br /><span>chưa?</span></h1>
             <p className="page-intro">Chia sẻ mã phòng với đồng đội để họ có thể tham gia.</p>
             <div className="room-code-display"><span>MÃ PHÒNG</span><strong>{code}</strong></div>
+            <p className="page-intro">Chủ đề: {({ travel: 'Du lịch', work: 'Công việc', life: 'Đời sống' } as Record<string, string>)[game.topic ?? ''] ?? 'Tổng hợp'}. Không đủ câu mới? Về sảnh chọn chủ đề/cấp độ khác hoặc giảm số câu.</p>
             {game.duel && <p className="page-intro">1v1 · 10 câu chung. Cần đủ hai người để bắt đầu. Xếp hạng theo độ chính xác, sau đó tổng thời gian; bỏ trống tính 15 giây.</p>}
             <div className="lobby-settings"><span>{game.mode === 'IELTS' ? 'IELTS · Điền từ' : game.mode === 'JLPT' ? 'JLPT · Kanji' : 'English · Từ vựng'}</span><strong>{game.level}</strong></div>
             {isHost ? <button className="button button-primary" onClick={start} disabled={!connected || starting}>{starting ? 'Đang chuẩn bị…' : 'Bắt đầu trận'} <span aria-hidden="true">→</span></button> : <p className="waiting-note"><span className="live-dot" /> Đang đợi chủ phòng bắt đầu...</p>}
