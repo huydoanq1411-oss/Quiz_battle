@@ -70,6 +70,10 @@ a { color: inherit; }
 .user-name { max-width: 140px; overflow: hidden; font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .app-main { width: min(1100px, 90vw); margin: 0 auto; padding: 60px 0 28px; }
 .app-main-auth { width: 100%; padding: 0; }
+.history-back { display: inline-flex; min-height: 38px; align-items: center; gap: 9px; margin-bottom: 20px; padding: 0 12px 0 0; border: 0; background: transparent; color: var(--muted); font-size: 12px; font-weight: 700; }
+.history-back span { color: var(--coral); font-size: 19px; line-height: 1; transition: transform .16s ease; }
+.history-back:hover span { transform: translateX(-3px); }
+.history-back:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; }
 .page { animation: page-in .45s ease both; }
 @keyframes page-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 .welcome-row { display: flex; min-height: 190px; align-items: center; justify-content: space-between; }

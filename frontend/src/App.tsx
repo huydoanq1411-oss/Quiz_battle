@@ -50,6 +50,19 @@ export default function App() {
       )}
       <InstallApp />
       <main className={user ? 'app-main' : 'app-main app-main-auth'}>
+        {user && location.pathname !== '/' && (
+          <button
+            className="history-back"
+            type="button"
+            onClick={() => {
+              if (location.key === 'default') nav('/');
+              else nav(-1);
+            }}
+            aria-label="Quay lại trang trước"
+          >
+            <span aria-hidden="true">←</span> Quay lại
+          </button>
+        )}
         <Routes>
           <Route path="/login" element={<AuthPage mode="login" />} />
           <Route path="/register" element={<AuthPage mode="register" />} />
